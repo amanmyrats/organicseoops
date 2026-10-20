@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "as_of": "2026-10-01",
+  "providers": [
+    {
+      "id": "google_search_console",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Selected exact-origin URL-prefix source; domain properties only project-origin page rows. Broader aggregates unavailable.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "google_analytics_4",
+      "owner_role": "platform_operator",
+      "local_contract": "blocked_source_contract",
+      "scope_note": "GA4 hostname plus landing path cannot independently prove HTTPS scheme/port; landing/conversion reports fail closed.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "pagespeed_insights",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Budgeted lab observation path; access, quotas and representative results unrun.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "chrome_ux_report",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Field coverage and history are conditional, not guaranteed for a customer origin.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "ai_text",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Explicit selected compatible/Responses text model and estimated budget; no default model, key or actual price attested.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "paddle_billing",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Signed fixture reconciliation and owner checkout code; seller/catalog/bank/sandbox and legal acceptance unrun.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "ses_delivery",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "SMTP/private feedback contracts; sender identity, SPF/DKIM/DMARC and delivery/complaint recovery unverified.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "gdelt_news",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Bounded DOC2 ArticleList RSS title/link/date metadata for one selected seed/publisher/window, with attribution. Publisher content/images not fetched or licensed; representative provider behavior and actual coverage/terms remain unverified.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    },
+    {
+      "id": "youtube_search",
+      "owner_role": "platform_operator",
+      "local_contract": "fixture_checked",
+      "scope_note": "Separate public-video search, dedicated single-client key/quota, unchanged metadata in no-store response and fifteen-minute browser memory only. No returned API data in durable topics, research, content, exports or backups. Actual provider, quota, policy/legal/bilingual and hosted lifecycle evidence unverified.",
+      "live_status": "unverified",
+      "public_claimable": false,
+      "evidence": {}
+    }
+  ],
+  "ai_visibility": {
+    "surface": "openai_responses_text",
+    "methodology": "api-text-visibility-v1",
+    "local_contract": "fixture_checked",
+    "live_status": "unverified",
+    "public_claimable": false,
+    "evidence": {}
+  }
+}

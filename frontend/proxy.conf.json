@@ -1,0 +1,18 @@
+{
+  "/api": {
+    "target": "http://127.0.0.1:18000",
+    "secure": false
+  },
+  "/_allauth": {
+    "target": "http://127.0.0.1:18000",
+    "secure": false
+  },
+  "/admin": {
+    "target": "http://127.0.0.1:18000",
+    "secure": false
+  },
+  "/static": {
+    "target": "http://127.0.0.1:18000",
+    "secure": false
+  }
+}

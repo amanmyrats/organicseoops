@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Explicit contact permission, current session MFA and a categorical reason are required. Requests are anonymous global enquiries; reply addresses are unverified and confer no customer identity or organization access. Inspection is audited. No reply is sent or response time promised.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}
+  <button type="submit">Inspect the selected retained scope</button>
+</form>
+{% if identifiers %}
+<h2>Newest retained identifiers</h2>
+<ul>{% for row in identifiers.rows %}<li>Request {{ row.id }} · {{ row.category }} · {{ row.language }} · created {{ row.created_at }} · expires {{ row.expires_at }}</li>{% empty %}<li>No retained contact identifiers.</li>{% endfor %}</ul>
+{% if identifiers.has_more %}<p>At most twenty identifiers are shown. To inspect older retained identifiers explicitly, choose list and enter before ID {{ identifiers.next_before_id }}. No raw inbox export is supplied.</p>{% endif %}
+{% endif %}
+{% if contact %}
+<section aria-labelledby="contact-detail-title">
+  <h2 id="contact-detail-title">Contact request {{ contact.id }}</h2>
+  <p>{{ contact.category }} · requested response language {{ contact.language }} · created {{ contact.created_at }} · expires {{ contact.expires_at }}.</p>
+  <p>Unverified reply email: {{ contact.reply_email }}</p>
+  <h3>Plain-text question</h3><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ contact.question }}</pre>
+</section>
+{% endif %}
+{% endblock %}

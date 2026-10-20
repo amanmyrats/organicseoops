@@ -1,0 +1,9 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use one exact local signed receipt ID obtained through authorized support. Current receipt change permission and session MFA are required; this command does not grant receipt inspection or broad discovery. Every committed retry has a reasoned audit.</p>
+<p>Only a FAILED receipt in the configured provider environment, received within the inclusive last 30 days and not in the future, is eligible. This resets the existing reconciliation attempt to pending and queues its ID after commit. It does not replay webhook bytes, repeat checkout/payment, manually mark an invoice paid or establish organization ownership. The worker separately reads current provider truth.</p>
+<p>Queued is not reconciled billing or paid access. A broker or response failure can leave a committed pending receipt for existing recovery; review the exact current state before another deliberate command. No automatic retry or replay is performed by this page.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ retry_form.as_p }}<button type="submit">Confirm exact reconciliation retry</button></form>
+{% if queued_receipt_id %}<h2>Receipt {{ queued_receipt_id }} queued for current-provider reconciliation</h2><p>No reconciled billing or paid-access outcome is established by this confirmation.</p>{% endif %}
+{% endblock %}

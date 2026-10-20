@@ -1,0 +1,52 @@
+name: organicseoops-dev
+
+x-development-backend: &development-backend
+  image: organicseoops-backend:development
+  volumes:
+    - ./backend/manage.py:/app/manage.py:ro
+    - ./backend/config:/app/config:ro
+    - ./backend/accounts:/app/accounts:ro
+    - ./backend/tenancy:/app/tenancy:ro
+    - ./backend/jobs:/app/jobs:ro
+    - ./backend/providers:/app/providers:ro
+    - ./backend/integrations:/app/integrations:ro
+
+services:
+  proxy:
+    image: organicseoops-proxy:development
+
+  api:
+    <<: *development-backend
+    command: [python, manage.py, runserver, "0.0.0.0:8000"]
+
+  worker-default:
+    <<: *development-backend
+
+  worker-ai:
+    <<: *development-backend
+
+  worker-crawl:
+    <<: *development-backend
+
+  worker-audit:
+    <<: *development-backend
+
+  beat:
+    <<: *development-backend
+
+  renderer:
+    image: organicseoops-renderer:development
+
+  postgres:
+    image: organicseoops-postgres:development
+    networks: [data, host-access]
+    ports:
+      - "127.0.0.1:15432:5432"
+
+  redis:
+    networks: [data, host-access]
+    ports:
+      - "127.0.0.1:16379:6379"
+
+networks:
+  host-access: {}

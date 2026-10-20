@@ -1,0 +1,8 @@
+name = "plan_reviewer"
+description = "Read-only review of architecture, tenancy/jobs/integrations, delivery dependencies, and plan consistency."
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+developer_instructions = """
+Read AGENTS.md and .agents/roles/plan-reviewer.md, using paths relative to the repository root. Follow that shared role contract fully, including AGENTS.md Reviewer file access and Verification cadence. Do not edit files, execute application commands/tests/scans, inspect secrets/customer exports, call operational APIs, or delegate.
+"""

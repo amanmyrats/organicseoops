@@ -1,0 +1,32 @@
+services:
+  # Source container volumes are retained; only the bound VPC private IP is reachable.
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set reviewed PostgreSQL ECR digest}
+    build: !reset null
+    command: [postgres, "-c", "ssl=on", "-c", "ssl_cert_file=/run/organicseoops/postgres.crt",
+              "-c", "ssl_key_file=/run/organicseoops/postgres.key", "-c", "hba_file=/run/organicseoops/pg_hba.conf"]
+    ports:
+      - "${PRIVATE_DB_BIND_IP:?Set owned VPC private address}:15432:5432"
+    volumes: !override
+      - ${PRIVATE_POSTGRES_DATA_DIR:?Set retained mounted EBS PostgreSQL directory}:/var/lib/postgresql
+      - ${PRIVATE_POSTGRES_CERT_FILE:?Set private PostgreSQL certificate}:/run/organicseoops/postgres.crt:ro
+      - ${PRIVATE_POSTGRES_KEY_FILE:?Set UID70-readable mode0600 PostgreSQL key}:/run/organicseoops/postgres.key:ro
+      - ./deploy/postgres/pg_hba.production.conf:/run/organicseoops/pg_hba.conf:ro
+
+  redis:
+    command: [redis-server, /etc/redis/redis.production.conf]
+    ports:
+      - "${PRIVATE_REDIS_BIND_IP:?Set owned VPC private address}:16379:6379"
+    volumes:
+      - ./deploy/redis.production.conf:/etc/redis/redis.production.conf:ro
+      - ${PRIVATE_REDIS_CERT_FILE:?Set private Redis certificate}:/run/organicseoops/redis.crt:ro
+      - ${PRIVATE_REDIS_KEY_FILE:?Set private Redis key}:/run/organicseoops/redis.key:ro
+      - ${PRIVATE_REDIS_CA_FILE:?Set private Redis CA}:/run/organicseoops/redis-ca.pem:ro
+      - ${PRIVATE_REDIS_ACL_FILE:?Set private Redis ACL}:/run/organicseoops/redis.acl:ro
+    environment:
+      REDISCLI_AUTH: ${PRIVATE_REDIS_HEALTH_PASSWORD:?Set private health ACL password}
+    healthcheck:
+      test: [CMD-SHELL, 'test "$(redis-cli --tls --cacert /run/organicseoops/redis-ca.pem --user health ping)" = PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5

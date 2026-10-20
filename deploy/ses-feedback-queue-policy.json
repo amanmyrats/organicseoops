@@ -1,0 +1,32 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ExactSesFeedbackTopicOnly",
+      "Effect": "Allow",
+      "Principal": { "Service": "sns.amazonaws.com" },
+      "Action": "sqs:SendMessage",
+      "Resource": "arn:aws:sqs:${AWS_REGION}:${AWS_ACCOUNT_ID}:${SES_FEEDBACK_QUEUE_NAME}",
+      "Condition": {
+        "ArnEquals": { "aws:SourceArn": "${SES_FEEDBACK_TOPIC_ARN}" },
+        "StringEquals": { "aws:SourceAccount": "${AWS_ACCOUNT_ID}" }
+      }
+    },
+    {
+      "Sid": "DenyOtherPublishers",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "sqs:SendMessage",
+      "Resource": "arn:aws:sqs:${AWS_REGION}:${AWS_ACCOUNT_ID}:${SES_FEEDBACK_QUEUE_NAME}",
+      "Condition": { "ArnNotEquals": { "aws:SourceArn": "${SES_FEEDBACK_TOPIC_ARN}" } }
+    },
+    {
+      "Sid": "RequireTls",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "sqs:*",
+      "Resource": "arn:aws:sqs:${AWS_REGION}:${AWS_ACCOUNT_ID}:${SES_FEEDBACK_QUEUE_NAME}",
+      "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+    }
+  ]
+}

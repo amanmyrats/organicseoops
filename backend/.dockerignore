@@ -1,0 +1,20 @@
+# Allowlist application source; never send virtualenvs, .env or host artifacts.
+*
+!requirements.txt
+!manage.py
+!config/
+!config/**
+!accounts/
+!accounts/**
+!tenancy/
+!tenancy/**
+!jobs/
+!jobs/**
+!providers/
+!providers/**
+!integrations/
+!integrations/**
+**/__pycache__/
+**/*.py[cod]
+**/.env*
+**/*.log

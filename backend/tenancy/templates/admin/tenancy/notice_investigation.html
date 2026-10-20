@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Choose one exact organization and notice ID with a categorical reason. Both organization and notice view permissions and current session MFA are required. Inspection is audited and grants no recipient, account mail, billing, feedback, credential or reissue authority.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect recorded notice transport</button></form>
+{% if inspection %}
+<section aria-labelledby="notice-history-title">
+  <h2 id="notice-history-title">Recorded notice {{ inspection.notice.id }} · organization {{ inspection.organization_id }}</h2>
+  <dl>
+    <dt>Recorded kind</dt><dd>{{ inspection.notice.kind }}</dd>
+    <dt>Recorded transport state</dt><dd>{{ inspection.notice.state }}</dd>
+    <dt>Created</dt><dd>{{ inspection.notice.created_at }}</dd>
+    <dt>Attempt recorded</dt><dd>{% if inspection.notice.attempted_at %}{{ inspection.notice.attempted_at }}{% else %}No recorded attempt{% endif %}</dd>
+    <dt>Transport acceptance recorded</dt><dd>{% if inspection.notice.sent_at %}{{ inspection.notice.sent_at }}{% else %}No recorded acceptance{% endif %}</dd>
+    <dt>Recorded manual reissues</dt><dd>{{ inspection.notice.manual_retries }}</dd>
+  </dl>
+  <p>Sent means recorded transport acceptance, not inbox delivery or a read receipt. Sending or unknown may already have sent mail. Missing acceptance is not proof of no mail. The retry count is history, not current eligibility or consent; inspection never recovers, requeues or sends mail. Original source references do not establish current billing or trial truth.</p>
+</section>
+{% endif %}
+{% endblock %}

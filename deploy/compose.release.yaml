@@ -1,0 +1,21 @@
+# Use on both separate hosts with the appropriate production-host override.
+# Production commands must pass --no-build; image digest is selected explicitly.
+services:
+  api:
+    image: ${BACKEND_IMAGE:?Set the reviewed backend ECR image digest}
+    build: !reset null
+  worker-default:
+    image: ${BACKEND_IMAGE:?Set the reviewed backend ECR image digest}
+    build: !reset null
+  worker-ai:
+    image: ${BACKEND_IMAGE:?Set the reviewed backend ECR image digest}
+    build: !reset null
+  worker-crawl:
+    image: ${BACKEND_IMAGE:?Set the reviewed backend ECR image digest}
+    build: !reset null
+  worker-audit:
+    image: ${BACKEND_IMAGE:?Set the reviewed backend ECR image digest}
+    build: !reset null
+  beat:
+    image: ${BACKEND_IMAGE:?Set the reviewed backend ECR image digest}
+    build: !reset null

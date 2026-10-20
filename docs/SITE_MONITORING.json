@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "origin": null,
+  "owner": null,
+  "cadence_days": null,
+  "baseline": null,
+  "related_records": {
+    "publication": "frontend/publication-approvals.json",
+    "providers": "docs/PROVIDER_READINESS.json",
+    "cleanup": "docs/PUBLIC_CONTENT_WORKFLOW.md"
+  },
+  "checks": [
+    {
+      "id": "public_indexability",
+      "evidence": []
+    },
+    {
+      "id": "sitemap_submission",
+      "evidence": []
+    },
+    {
+      "id": "observed_indexing",
+      "evidence": []
+    },
+    {
+      "id": "links",
+      "evidence": []
+    },
+    {
+      "id": "availability",
+      "evidence": []
+    },
+    {
+      "id": "search",
+      "evidence": []
+    },
+    {
+      "id": "referrals",
+      "evidence": []
+    },
+    {
+      "id": "lab_performance",
+      "evidence": []
+    },
+    {
+      "id": "field_performance",
+      "evidence": []
+    },
+    {
+      "id": "mobile",
+      "evidence": []
+    },
+    {
+      "id": "accessibility",
+      "evidence": []
+    },
+    {
+      "id": "approved_claims",
+      "evidence": []
+    },
+    {
+      "id": "consent",
+      "evidence": []
+    },
+    {
+      "id": "app_handoff",
+      "evidence": []
+    },
+    {
+      "id": "email_handoff",
+      "evidence": []
+    },
+    {
+      "id": "payment_handoff",
+      "evidence": []
+    },
+    {
+      "id": "cleanup_scheduler",
+      "evidence": []
+    },
+    {
+      "id": "cleanup_queue",
+      "evidence": []
+    },
+    {
+      "id": "cleanup_deadline",
+      "evidence": []
+    },
+    {
+      "id": "content_rollback",
+      "evidence": []
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+.env
+.env.*
+!/.env.example
+# Backend .env, .env.prod and disposable .env.ci stay private.
+# Frontend TypeScript environments contain public values and are versioned.
+node_modules/
+.angular/
+dist/
+out-tsc/
+coverage/
+.venv/
+staticfiles/
+private-artifacts/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+*.egg-info/
+htmlcov/
+.coverage
+
+# Django runtime artifacts
+media/
+db.sqlite3
+
+# Celery Beat local schedule DB
+celerybeat-schedule*
+
+# Angular/TS incremental build state
+*.tsbuildinfo
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Local secrets/keys
+*.pem
+*.key
+
+# Terraform
+.terraform/
+*.tfstate*
+
+# graphify knowledge graph (generated)
+graphify-out/

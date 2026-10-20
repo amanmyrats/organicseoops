@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Access requires the exact organization, project and request ID, a categorical reason, support permission and current session MFA. This grants no job output, export, billing, credential or impersonation access. Each successful content inspection is audited.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}
+  {{ scope_form.as_p }}
+  <button type="submit" name="action" value="inspect">Inspect current scoped support request</button>
+</form>
+{% if support %}
+<section aria-labelledby="support-detail-title">
+  <h2 id="support-detail-title">Support request {{ support.id }}</h2>
+  <p>Category {{ support.category }} · status {{ support.status }} · revision {{ support.revision }} · created {{ support.created_at }}.</p>
+  {% if support.job_id %}<p>Minimized job reference {{ support.job_id }}. It is not detailed job inspection authority.</p>{% endif %}
+  <h3>Customer question (plain text)</h3><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ support.question }}</pre>
+  <h3>Customer-visible staff response history</h3>
+  {% for update in support.updates %}
+    <p>Revision {{ update.revision }} · {{ update.status }} · {{ update.created_at }}.</p>
+    <pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ update.response }}</pre>
+  {% empty %}<p>No recorded staff response.</p>{% endfor %}
+  {% if support.updates_has_more %}<p>Only the newest twenty responses are shown. Earlier retained responses remain in the organization export.</p>{% endif %}
+  {% if response_form %}
+    <p>A response is visible only to the requester with current project access. Do not include credentials, personal payloads, attachments or copied job/export bodies. Changing status is a support record, not a job retry or site fix. Unknown submission outcomes require current inspection before an explicit same-command retry.</p>
+    <form method="post">{% csrf_token %}
+      {{ response_form.as_p }}
+      <button type="submit" name="action" value="respond">Record this customer-visible response once</button>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

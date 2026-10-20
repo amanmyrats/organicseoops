@@ -1,0 +1,281 @@
+name: organicseoops
+
+x-backend-environment: &backend-environment
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in the selected backend/.env or backend/.env.prod}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+  FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+  API_ORIGIN: ${API_ORIGIN:-}
+  MFA_ENCRYPTION_KEYS: ${MFA_ENCRYPTION_KEYS:-}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-}
+  EMAIL_DELIVERY_ENABLED: "1"
+  DJANGO_CACHE_URL: redis://redis:6379/1
+  POSTGRES_DB: ${POSTGRES_DB:-organicseoops}
+  POSTGRES_USER: ${POSTGRES_USER:-organicseoops}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the selected backend/.env or backend/.env.prod}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  CELERY_BROKER_URL: redis://redis:6379/0
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  ARTIFACT_STORAGE_BACKEND: ${ARTIFACT_STORAGE_BACKEND:-filesystem}
+  ARTIFACT_LOCAL_ROOT: /var/lib/organicseoops/artifacts
+  ARTIFACT_MAX_BYTES: ${ARTIFACT_MAX_BYTES:-10485760}
+  ARTIFACT_ALLOWED_CONTENT_TYPES: ${ARTIFACT_ALLOWED_CONTENT_TYPES:-application/json,application/zip,text/csv,text/html,text/plain}
+  ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:-}
+  ARTIFACT_S3_PREFIX: ${ARTIFACT_S3_PREFIX:-artifacts}
+  AWS_REGION: ${AWS_REGION:-}
+  REPOSITORY_ANALYSIS_ENABLED: ${REPOSITORY_ANALYSIS_ENABLED:-0}
+  REPOSITORY_ADVISORIES_ENABLED: ${REPOSITORY_ADVISORIES_ENABLED:-0}
+  REPOSITORY_ADVISORY_REVIEW_REFERENCE: ${REPOSITORY_ADVISORY_REVIEW_REFERENCE:-}
+  REPOSITORY_CONTROLLER_ID: ${REPOSITORY_CONTROLLER_ID:-}
+  REPOSITORY_RUNNER_IMAGE: ${REPOSITORY_RUNNER_IMAGE:-}
+  REPOSITORY_ISOLATION_REVIEW_REFERENCE: ${REPOSITORY_ISOLATION_REVIEW_REFERENCE:-}
+
+x-backend: &backend
+  image: organicseoops-backend:local
+  build:
+    context: ./backend
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  environment:
+    <<: *backend-environment
+  volumes:
+    - artifact-data:/var/lib/organicseoops/artifacts
+  networks: [data, outbound]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  stop_grace_period: 60s
+
+x-worker: &worker
+  <<: *backend
+  healthcheck:
+    test: [CMD-SHELL, 'celery -A config inspect ping --destination="worker@$$HOSTNAME" --timeout=5']
+    interval: 60s
+    timeout: 10s
+    retries: 3
+    start_period: 30s
+
+services:
+  proxy:
+    image: organicseoops-proxy:local
+    build:
+      context: ./deploy/proxy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PROXY_PORT:-8080}:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [edge]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      CUSTOMER_EXPORT_COPY_POLICY_REFERENCE: ${CUSTOMER_EXPORT_COPY_POLICY_REFERENCE:-}
+      CUSTOMER_EXPORT_COPY_LIFETIME_DAYS: ${CUSTOMER_EXPORT_COPY_LIFETIME_DAYS:-}
+      WEEKLY_SUMMARY_DELIVERY_ENABLED: ${WEEKLY_SUMMARY_DELIVERY_ENABLED:-0}
+      ALERT_DIGEST_DELIVERY_ENABLED: ${ALERT_DIGEST_DELIVERY_ENABLED:-0}
+      CRUX_ALERT_DELIVERY_ENABLED: ${CRUX_ALERT_DELIVERY_ENABLED:-0}
+      PUBLIC_CONTACT_ENABLED: ${PUBLIC_CONTACT_ENABLED:-0}
+      PUBLIC_CONTACT_RETENTION_DAYS: ${PUBLIC_CONTACT_RETENTION_DAYS:-}
+      PUBLIC_ANALYTICS_ENABLED: ${PUBLIC_ANALYTICS_ENABLED:-0}
+      PUBLIC_ANALYTICS_POLICY_FILE: ${PUBLIC_ANALYTICS_POLICY_FILE:-}
+      PUBLIC_ANALYTICS_POLICY_SHA256: ${PUBLIC_ANALYTICS_POLICY_SHA256:-}
+      SELF_SERVICE_CLOSURE_ENABLED: ${SELF_SERVICE_CLOSURE_ENABLED:-0}
+      SELF_SERVICE_ACCOUNT_CLOSURE_ENABLED: ${SELF_SERVICE_ACCOUNT_CLOSURE_ENABLED:-0}
+      PERSONAL_IDENTITY_ERASURE_POLICY_REFERENCE: ${PERSONAL_IDENTITY_ERASURE_POLICY_REFERENCE:-}
+      PERSONAL_IDENTITY_TRIAL_RETENTION_DAYS: ${PERSONAL_IDENTITY_TRIAL_RETENTION_DAYS:-}
+      PERSONAL_IDENTITY_RETENTION_KEY: ${PERSONAL_IDENTITY_RETENTION_KEY:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      GOOGLE_OAUTH_ENCRYPTION_KEYS: ${GOOGLE_OAUTH_ENCRYPTION_KEYS:-}
+      GOOGLE_ANALYTICS_REDIRECT_URI: ${GOOGLE_ANALYTICS_REDIRECT_URI:-}
+      GOOGLE_ANALYTICS_ENCRYPTION_KEYS: ${GOOGLE_ANALYTICS_ENCRYPTION_KEYS:-}
+      PERFORMANCE_ENCRYPTION_KEYS: ${PERFORMANCE_ENCRYPTION_KEYS:-}
+      PROVIDER_ENCRYPTION_KEYS: ${PROVIDER_ENCRYPTION_KEYS:-}
+      PADDLE_ENCRYPTION_KEYS: ${PADDLE_ENCRYPTION_KEYS:-}
+      PADDLE_ENVIRONMENT: ${PADDLE_ENVIRONMENT:-}
+      PADDLE_CHECKOUT_URL: ${PADDLE_CHECKOUT_URL:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-0}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+    networks: [data, outbound, edge]
+    command: [gunicorn, "--bind=0.0.0.0:8000", "--workers=2", "config.wsgi:application"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=7).close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  worker-default:
+    <<: *worker
+    environment:
+      <<: *backend-environment
+      WEEKLY_SUMMARY_DELIVERY_ENABLED: ${WEEKLY_SUMMARY_DELIVERY_ENABLED:-0}
+      ALERT_DIGEST_DELIVERY_ENABLED: ${ALERT_DIGEST_DELIVERY_ENABLED:-0}
+      CRUX_ALERT_DELIVERY_ENABLED: ${CRUX_ALERT_DELIVERY_ENABLED:-0}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_ENCRYPTION_KEYS: ${GOOGLE_OAUTH_ENCRYPTION_KEYS:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      GOOGLE_ANALYTICS_ENCRYPTION_KEYS: ${GOOGLE_ANALYTICS_ENCRYPTION_KEYS:-}
+      PROVIDER_ENCRYPTION_KEYS: ${PROVIDER_ENCRYPTION_KEYS:-}
+      PADDLE_ENCRYPTION_KEYS: ${PADDLE_ENCRYPTION_KEYS:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-0}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-}
+      PADDLE_ENVIRONMENT: ${PADDLE_ENVIRONMENT:-}
+    command: [celery, -A, config, worker, "--loglevel=INFO", "--hostname=worker@%h", "--queues=default", "--concurrency=2"]
+
+  worker-ai:
+    <<: *worker
+    environment:
+      <<: *backend-environment
+      EMAIL_BACKEND: django.core.mail.backends.dummy.EmailBackend
+      EMAIL_DELIVERY_ENABLED: "0"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-}
+      PROVIDER_ENCRYPTION_KEYS: ${PROVIDER_ENCRYPTION_KEYS:-}
+    command: [celery, -A, config, worker, "--loglevel=INFO", "--hostname=worker@%h", "--queues=ai", "--concurrency=1"]
+
+  worker-crawl:
+    <<: *worker
+    environment:
+      <<: *backend-environment
+      EMAIL_BACKEND: django.core.mail.backends.dummy.EmailBackend
+      EMAIL_DELIVERY_ENABLED: "0"
+    command: [celery, -A, config, worker, "--loglevel=INFO", "--hostname=worker@%h", "--queues=crawl", "--concurrency=1"]
+    volumes:
+      - artifact-data:/var/lib/organicseoops/artifacts
+      - render-requests:/var/lib/organicseoops/render-requests
+      - render-results:/var/lib/organicseoops/render-results
+
+  worker-audit:
+    <<: *worker
+    environment:
+      <<: *backend-environment
+      CUSTOMER_EXPORT_COPY_POLICY_REFERENCE: ${CUSTOMER_EXPORT_COPY_POLICY_REFERENCE:-}
+      CUSTOMER_EXPORT_COPY_LIFETIME_DAYS: ${CUSTOMER_EXPORT_COPY_LIFETIME_DAYS:-}
+      EMAIL_BACKEND: django.core.mail.backends.dummy.EmailBackend
+      EMAIL_DELIVERY_ENABLED: "0"
+      GOOGLE_PERFORMANCE_API_KEY: ${GOOGLE_PERFORMANCE_API_KEY:-}
+      PERFORMANCE_ENCRYPTION_KEYS: ${PERFORMANCE_ENCRYPTION_KEYS:-}
+    command: [celery, -A, config, worker, "--loglevel=INFO", "--hostname=worker@%h", "--queues=audit", "--concurrency=1"]
+
+  beat:
+    <<: *backend
+    environment:
+      <<: *backend-environment
+      EMAIL_BACKEND: django.core.mail.backends.dummy.EmailBackend
+      EMAIL_DELIVERY_ENABLED: "0"
+    # One scheduler per project; CI must not collide with development's Beat.
+    container_name: ${COMPOSE_PROJECT_NAME:-organicseoops}-beat
+    command: [celery, -A, config, beat, "--loglevel=INFO", "--schedule=/var/lib/celery/celerybeat-schedule", "--pidfile=/tmp/celerybeat.pid"]
+    volumes:
+      - beat-data:/var/lib/celery
+      - artifact-data:/var/lib/organicseoops/artifacts
+
+  renderer:
+    image: organicseoops-renderer:local
+    build:
+      context: ./renderer
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=67108864
+    shm_size: 134217728
+    ipc: private
+    network_mode: none
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./renderer/seccomp_profile.json
+    pids_limit: 128
+    mem_limit: 536870912
+    cpus: 1.0
+    volumes:
+      - render-requests:/var/lib/organicseoops/render-requests
+      - render-results:/var/lib/organicseoops/render-results
+    healthcheck:
+      test: [CMD, python, -c, "import os; os.kill(1, 0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 10s
+
+  postgres:
+    image: organicseoops-postgres:local
+    build:
+      context: ./deploy/postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-organicseoops}
+      POSTGRES_USER: ${POSTGRES_USER:-organicseoops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the selected backend/.env or backend/.env.prod}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8
+    volumes:
+      # PostgreSQL 18 images use a versioned PGDATA under this parent.
+      - postgres-data:/var/lib/postgresql
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8.10.2-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    restart: unless-stopped
+    # Local-only: no host ports, only the internal data network can reach Redis.
+    command: [redis-server, --appendonly, "yes", --appendfsync, everysec, --maxmemory-policy, noeviction, --protected-mode, "no"]
+    volumes:
+      - redis-data:/data
+    networks: [data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  data:
+    internal: true
+  outbound: {}
+  edge: {}
+
+volumes:
+  postgres-data:
+    # A new name prevents accidental physical reuse of the old Bookworm volume.
+    # Existing installations require a logical restore before using this stack.
+    name: ${COMPOSE_PROJECT_NAME:-organicseoops}_postgres-alpine-data
+  redis-data: {}
+  beat-data: {}
+  artifact-data: {}
+  render-requests: {}
+  render-results: {}

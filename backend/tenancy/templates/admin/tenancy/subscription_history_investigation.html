@@ -1,0 +1,19 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID and local archived subscription record ID already obtained through authorized support, not a provider ID. Organization and archived subscription view permissions and current session MFA are required; every delivered inspection is audited. No broad archive discovery is available here.</p>
+<p>Retained suspended, closed, old and other-environment records can be inspected. This is a recorded canceled identity copy made on verified new paid recheckout, not current paid access, complete lifetime history, first payment, retry eligibility or cancellation authority.</p>
+<p>Local archive time records copy creation; local verification is the prior last server observation. Provider cancellation and optional refund/dispute dates have separate meanings. Optional provider dates can be future. Later signed events and adjustments may be no-ops without updating this archive: missing refund/dispute dates do not prove no later adjustment. This inspector does not follow provider identities into current billing or cancellation records.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained archive</button></form>
+{% if inspection %}
+<h2>Recorded archived subscription {{ inspection.history.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Recorded environment</dt><dd>{{ inspection.history.environment }}</dd>
+<dt>Recorded status</dt><dd>{{ inspection.history.status }}</dd>
+<dt>Prior local verification observation (UTC)</dt><dd>{{ inspection.history.verified_at }}</dd>
+<dt>Recorded provider cancellation (UTC)</dt><dd>{{ inspection.history.canceled_at }}</dd>
+<dt>Recorded full refund (UTC)</dt><dd>{{ inspection.history.refunded_at|default_if_none:"Not recorded; later history unknown" }}</dd>
+<dt>Recorded dispute (UTC)</dt><dd>{{ inspection.history.disputed_at|default_if_none:"Not recorded; later history unknown" }}</dd>
+<dt>Local archive copy creation (UTC)</dt><dd>{{ inspection.history.archived_at }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Source binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

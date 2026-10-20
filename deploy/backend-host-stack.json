@@ -1,0 +1,107 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Distinct private EC2 application and SES feedback hosts with encrypted PostgreSQL EBS; prepare only",
+  "Parameters": {
+    "VpcId": { "Type": "AWS::EC2::VPC::Id" },
+    "AppPrivateSubnetId": { "Type": "AWS::EC2::Subnet::Id" },
+    "FeedbackPrivateSubnetId": { "Type": "AWS::EC2::Subnet::Id" },
+    "AppAvailabilityZone": { "Type": "String" },
+    "BackendAmiId": { "Type": "AWS::EC2::Image::Id" },
+    "AppInstanceType": { "Type": "String", "Default": "t3.medium" },
+    "FeedbackInstanceType": { "Type": "String", "Default": "t3.small" },
+    "AppInstanceProfileName": { "Type": "String" },
+    "FeedbackInstanceProfileName": { "Type": "String" },
+    "ApiAlbBackendSecurityGroupId": { "Type": "AWS::EC2::SecurityGroup::Id" }
+  },
+  "Resources": {
+    "AppDataSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Private TLS PostgreSQL and Redis for dedicated worker only",
+        "VpcId": { "Ref": "VpcId" }
+      }
+    },
+    "FeedbackSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Dedicated worker has no inbound public services",
+        "VpcId": { "Ref": "VpcId" }
+      }
+    },
+    "FeedbackToPostgres": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "AppDataSecurityGroup" },
+        "IpProtocol": "tcp", "FromPort": 15432, "ToPort": 15432,
+        "SourceSecurityGroupId": { "Ref": "FeedbackSecurityGroup" }
+      }
+    },
+    "FeedbackToRedis": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "AppDataSecurityGroup" },
+        "IpProtocol": "tcp", "FromPort": 16379, "ToPort": 16379,
+        "SourceSecurityGroupId": { "Ref": "FeedbackSecurityGroup" }
+      }
+    },
+    "AppHost": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": { "Ref": "BackendAmiId" },
+        "InstanceType": { "Ref": "AppInstanceType" },
+        "IamInstanceProfile": { "Ref": "AppInstanceProfileName" },
+        "MetadataOptions": { "HttpEndpoint": "enabled", "HttpTokens": "required", "HttpPutResponseHopLimit": 2 },
+        "NetworkInterfaces": [{
+          "DeviceIndex": "0", "AssociatePublicIpAddress": false,
+          "SubnetId": { "Ref": "AppPrivateSubnetId" },
+          "GroupSet": [{ "Ref": "ApiAlbBackendSecurityGroupId" }, { "Ref": "AppDataSecurityGroup" }]
+        }],
+        "BlockDeviceMappings": [{
+          "DeviceName": "/dev/xvda",
+          "Ebs": { "Encrypted": true, "VolumeSize": 30, "VolumeType": "gp3", "DeleteOnTermination": true }
+        }]
+      }
+    },
+    "AppPostgresVolume": {
+      "Type": "AWS::EC2::Volume",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "AvailabilityZone": { "Ref": "AppAvailabilityZone" },
+        "Encrypted": true, "VolumeType": "gp3", "Size": 100
+      }
+    },
+    "AppPostgresVolumeAttachment": {
+      "Type": "AWS::EC2::VolumeAttachment",
+      "Properties": {
+        "Device": "/dev/sdf", "InstanceId": { "Ref": "AppHost" },
+        "VolumeId": { "Ref": "AppPostgresVolume" }
+      }
+    },
+    "FeedbackHost": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": { "Ref": "BackendAmiId" },
+        "InstanceType": { "Ref": "FeedbackInstanceType" },
+        "IamInstanceProfile": { "Ref": "FeedbackInstanceProfileName" },
+        "MetadataOptions": { "HttpEndpoint": "enabled", "HttpTokens": "required", "HttpPutResponseHopLimit": 2 },
+        "NetworkInterfaces": [{
+          "DeviceIndex": "0", "AssociatePublicIpAddress": false,
+          "SubnetId": { "Ref": "FeedbackPrivateSubnetId" },
+          "GroupSet": [{ "Ref": "FeedbackSecurityGroup" }]
+        }],
+        "BlockDeviceMappings": [{
+          "DeviceName": "/dev/xvda",
+          "Ebs": { "Encrypted": true, "VolumeSize": 30, "VolumeType": "gp3", "DeleteOnTermination": true }
+        }]
+      }
+    }
+  },
+  "Outputs": {
+    "AppInstanceId": { "Value": { "Ref": "AppHost" } },
+    "FeedbackInstanceId": { "Value": { "Ref": "FeedbackHost" } },
+    "AppPrivateIp": { "Value": { "Fn::GetAtt": ["AppHost", "PrivateIp"] } },
+    "FeedbackPrivateIp": { "Value": { "Fn::GetAtt": ["FeedbackHost", "PrivateIp"] } },
+    "RetainedPostgresVolumeId": { "Value": { "Ref": "AppPostgresVolume" } }
+  }
+}

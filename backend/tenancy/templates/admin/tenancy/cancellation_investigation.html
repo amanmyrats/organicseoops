@@ -1,0 +1,18 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID and local closure cancellation record ID already obtained through authorized support, not a provider ID. Organization and cancellation view permissions and current session MFA are required; every delivered inspection is audited. No broad cancellation discovery is available here.</p>
+<p>Retained suspended, closed, old and other-environment records can be inspected. Recorded attempt state is not current paid access, current provider identity, deletion eligibility or retry authority. This inspector does not contact the provider, repeat a cancellation, reconcile billing or inspect current subscription/deletion records.</p>
+<p>Creation and attempt are local server dates. The stored confirmation date is the provider's cancellation date, not local confirmation time; it can precede both creation and attempt. The linked subscription may remain ACTIVE. Sending or unknown never proves the provider did nothing, and confirmation does not establish current deletion eligibility. Unknown categories remain unclassified; missing records never mean cancellation is unnecessary.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained cancellation</button></form>
+{% if inspection %}
+<h2>Recorded closure cancellation {{ inspection.cancellation.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Recorded environment</dt><dd>{{ inspection.cancellation.environment }}</dd>
+<dt>Recorded state</dt><dd>{{ inspection.cancellation.state }}</dd>
+<dt>Recorded error category</dt><dd>{{ inspection.cancellation.error_category|default_if_none:"Not applicable" }}</dd>
+<dt>Local record creation (UTC)</dt><dd>{{ inspection.cancellation.created_at }}</dd>
+<dt>Local provider attempt (UTC)</dt><dd>{{ inspection.cancellation.attempted_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded provider cancellation date (stored confirmed_at, UTC)</dt><dd>{{ inspection.cancellation.confirmed_at|default_if_none:"Not recorded" }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Source binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,203 @@
+name: Backend image and controlled release
+
+on:
+  push:
+    paths:
+      - backend/**
+      - renderer/**
+      - compose.yaml
+      - deploy/compose.*.yaml
+      - deploy/backend-release.sh
+      - deploy/checks/**
+      - .github/workflows/backend-checks.yml
+      - deploy/backend-ssm-command.py
+      - deploy/nginx.production.conf
+      - deploy/postgres/**
+      - deploy/proxy/**
+      - deploy/redis.production.conf
+      - .github/workflows/backend-release.yml
+  workflow_dispatch:
+    inputs:
+      release:
+        type: boolean
+        description: Run sequential app then feedback SSM release after image checks
+        default: false
+      backup_verified:
+        type: boolean
+        description: Confirm recoverable database backup was verified outside this workflow
+        default: false
+      origin_drained:
+        type: boolean
+        description: Confirm API target drained from ALB outside this workflow
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production-release
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  BACKEND_REPOSITORY_URI: ${{ vars.BACKEND_REPOSITORY_URI }}
+  RENDERER_REPOSITORY_URI: ${{ vars.RENDERER_REPOSITORY_URI }}
+  POSTGRES_REPOSITORY_URI: ${{ vars.POSTGRES_REPOSITORY_URI }}
+  PROXY_REPOSITORY_URI: ${{ vars.PROXY_REPOSITORY_URI }}
+  RELEASE_BUCKET_NAME: ${{ vars.RELEASE_BUCKET_NAME }}
+  APP_INSTANCE_ID: ${{ vars.APP_INSTANCE_ID }}
+  FEEDBACK_INSTANCE_ID: ${{ vars.FEEDBACK_INSTANCE_ID }}
+  PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}
+  BACKEND_DEPLOY_ROLE_ARN: ${{ vars.BACKEND_DEPLOY_ROLE_ARN }}
+
+jobs:
+  preflight:
+    if: github.ref == format('refs/heads/{0}', vars.PRODUCTION_BRANCH)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check source and destination before building
+        shell: bash
+        run: |
+          test -n "$PRODUCTION_BRANCH" && test "$GITHUB_REF" = "refs/heads/$PRODUCTION_BRANCH"
+          test -n "$BACKEND_DEPLOY_ROLE_ARN" && test -n "$AWS_REGION" && test -n "$AWS_ACCOUNT_ID"
+          test "$BACKEND_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-backend"
+          test "$RENDERER_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-renderer"
+          test "$POSTGRES_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-postgres"
+          test "$PROXY_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-proxy"
+          test -n "$RELEASE_BUCKET_NAME" && test -n "$APP_INSTANCE_ID" && test -n "$FEEDBACK_INSTANCE_ID"
+          test "$APP_INSTANCE_ID" != "$FEEDBACK_INSTANCE_ID"
+          if test '${{ inputs.release }}' = true; then
+            test '${{ inputs.backup_verified }}' = true && test '${{ inputs.origin_drained }}' = true
+          fi
+  validation:
+    needs: preflight
+    if: github.ref == format('refs/heads/{0}', vars.PRODUCTION_BRANCH)
+    uses: ./.github/workflows/backend-checks.yml
+
+  release:
+    needs: validation
+    if: github.ref == format('refs/heads/{0}', vars.PRODUCTION_BRANCH)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check source and destination before building
+        shell: bash
+        run: |
+          test -n "$PRODUCTION_BRANCH" && test "$GITHUB_REF" = "refs/heads/$PRODUCTION_BRANCH"
+          test -n "$BACKEND_DEPLOY_ROLE_ARN" && test -n "$AWS_REGION" && test -n "$AWS_ACCOUNT_ID"
+          test "$BACKEND_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-backend"
+          test "$RENDERER_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-renderer"
+          test "$POSTGRES_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-postgres"
+          test "$PROXY_REPOSITORY_URI" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/organicseoops-proxy"
+          test -n "$RELEASE_BUCKET_NAME" && test -n "$APP_INSTANCE_ID" && test -n "$FEEDBACK_INSTANCE_ID"
+          test "$APP_INSTANCE_ID" != "$FEEDBACK_INSTANCE_ID"
+          if test '${{ inputs.release }}' = true; then
+            test '${{ inputs.backup_verified }}' = true && test '${{ inputs.origin_drained }}' = true
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.validation.outputs.artifact-id }}
+          path: ${{ runner.temp }}/backend-images
+          digest-mismatch: error
+      - name: Verify and load exact checked images
+        shell: bash
+        env:
+          EXPECTED_ARCHIVE_SHA256: ${{ needs.validation.outputs.archive-sha256 }}
+          EXPECTED_IMAGE_IDS: ${{ needs.validation.outputs.image-ids }}
+        run: |
+          [[ "$EXPECTED_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          printf '%s  %s\n' "$EXPECTED_ARCHIVE_SHA256" "$RUNNER_TEMP/backend-images/backend-images.tar" | sha256sum --check --status
+          docker image load --input "$RUNNER_TEMP/backend-images/backend-images.tar"
+          test "$(docker image inspect --format '{{.Id}}' organicseoops-backend:local organicseoops-renderer:local organicseoops-postgres:local organicseoops-proxy:local)" = "$EXPECTED_IMAGE_IDS"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.BACKEND_DEPLOY_ROLE_ARN }}
+          role-session-name: backend-release
+      - name: Push immutable backend, renderer, PostgreSQL and proxy images
+        id: images
+        shell: bash
+        run: |
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
+          registry="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+          docker tag organicseoops-backend:local "$BACKEND_REPOSITORY_URI:$GITHUB_SHA"
+          docker tag organicseoops-renderer:local "$RENDERER_REPOSITORY_URI:$GITHUB_SHA"
+          docker tag organicseoops-postgres:local "$POSTGRES_REPOSITORY_URI:$GITHUB_SHA"
+          docker tag organicseoops-proxy:local "$PROXY_REPOSITORY_URI:$GITHUB_SHA"
+          docker push "$BACKEND_REPOSITORY_URI:$GITHUB_SHA"
+          docker push "$RENDERER_REPOSITORY_URI:$GITHUB_SHA"
+          docker push "$POSTGRES_REPOSITORY_URI:$GITHUB_SHA"
+          docker push "$PROXY_REPOSITORY_URI:$GITHUB_SHA"
+          backend_digest="$(aws ecr describe-images --repository-name organicseoops-backend --image-ids "imageTag=$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          renderer_digest="$(aws ecr describe-images --repository-name organicseoops-renderer --image-ids "imageTag=$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          postgres_digest="$(aws ecr describe-images --repository-name organicseoops-postgres --image-ids "imageTag=$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          proxy_digest="$(aws ecr describe-images --repository-name organicseoops-proxy --image-ids "imageTag=$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          [[ "$backend_digest" =~ ^sha256:[0-9a-f]{64}$ && "$renderer_digest" =~ ^sha256:[0-9a-f]{64}$ && "$postgres_digest" =~ ^sha256:[0-9a-f]{64}$ && "$proxy_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          {
+            echo "backend=$BACKEND_REPOSITORY_URI@$backend_digest"
+            echo "renderer=$RENDERER_REPOSITORY_URI@$renderer_digest"
+            echo "postgres=$POSTGRES_REPOSITORY_URI@$postgres_digest"
+            echo "proxy=$PROXY_REPOSITORY_URI@$proxy_digest"
+          } >> "$GITHUB_OUTPUT"
+      - name: Stage checked secret-free host configuration
+        id: bundle
+        shell: bash
+        run: |
+          bundle="$RUNNER_TEMP/backend-release.tar.gz"
+          tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -cf - \
+            compose.yaml deploy/compose.production-private.yaml deploy/compose.production-app.yaml \
+            deploy/compose.feedback-worker.yaml deploy/compose.release.yaml deploy/backend-release.sh \
+            deploy/postgres-backup.sh deploy/organicseoops-backup.service deploy/organicseoops-backup.timer \
+            deploy/customer-deletion.sh deploy/organicseoops-customer-deletion.service \
+            deploy/organicseoops-customer-deletion.timer \
+            deploy/host-service-check.sh deploy/organicseoops-service-check@.service \
+            deploy/organicseoops-service-check@.timer deploy/cloudwatch-agent.json \
+            deploy/nginx.production.conf deploy/redis.production.conf deploy/postgres/pg_hba.production.conf \
+            renderer/seccomp_profile.json | gzip -n > "$bundle"
+          bundle_sha256="$(sha256sum "$bundle" | cut -d ' ' -f1)"
+          aws s3api put-object --bucket "$RELEASE_BUCKET_NAME" --key "releases/$GITHUB_SHA.tar.gz" \
+            --body "$bundle" --server-side-encryption AES256 >/dev/null
+          echo "sha256=$bundle_sha256" >> "$GITHUB_OUTPUT"
+      - name: Release application host and wait for health
+        if: github.event_name == 'workflow_dispatch' && inputs.release == true
+        shell: bash
+        env:
+          BUNDLE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          BACKEND_IMAGE: ${{ steps.images.outputs.backend }}
+          RENDERER_IMAGE: ${{ steps.images.outputs.renderer }}
+          POSTGRES_IMAGE: ${{ steps.images.outputs.postgres }}
+          PROXY_IMAGE: ${{ steps.images.outputs.proxy }}
+        run: |
+          python3 deploy/backend-ssm-command.py --role app --region "$AWS_REGION" --account "$AWS_ACCOUNT_ID" \
+            --bucket "$RELEASE_BUCKET_NAME" --commit "$GITHUB_SHA" \
+            --bundle-sha256 "$BUNDLE_SHA256" \
+            --backend-image "$BACKEND_IMAGE" --renderer-image "$RENDERER_IMAGE" --postgres-image "$POSTGRES_IMAGE" --proxy-image "$PROXY_IMAGE" \
+            > "$RUNNER_TEMP/app-ssm.json"
+          command_id="$(aws ssm send-command --document-name AWS-RunShellScript --instance-ids "$APP_INSTANCE_ID" \
+            --parameters "file://$RUNNER_TEMP/app-ssm.json" --query 'Command.CommandId' --output text)"
+          test -n "$command_id" && test "$command_id" != None
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$APP_INSTANCE_ID"
+      - name: Release separate feedback worker and wait for health
+        if: github.event_name == 'workflow_dispatch' && inputs.release == true
+        shell: bash
+        env:
+          BUNDLE_SHA256: ${{ steps.bundle.outputs.sha256 }}
+          BACKEND_IMAGE: ${{ steps.images.outputs.backend }}
+        run: |
+          python3 deploy/backend-ssm-command.py --role feedback --region "$AWS_REGION" --account "$AWS_ACCOUNT_ID" \
+            --bucket "$RELEASE_BUCKET_NAME" --commit "$GITHUB_SHA" \
+            --bundle-sha256 "$BUNDLE_SHA256" \
+            --backend-image "$BACKEND_IMAGE" > "$RUNNER_TEMP/feedback-ssm.json"
+          command_id="$(aws ssm send-command --document-name AWS-RunShellScript --instance-ids "$FEEDBACK_INSTANCE_ID" \
+            --parameters "file://$RUNNER_TEMP/feedback-ssm.json" --query 'Command.CommandId' --output text)"
+          test -n "$command_id" && test "$command_id" != None
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$FEEDBACK_INSTANCE_ID"

@@ -1,0 +1,127 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  color: #182b36;
+  background: #f7f9fa;
+  line-height: 1.6;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: #075d70; text-underline-offset: 0.2em; }
+a:hover { text-decoration-thickness: 0.15em; }
+:focus-visible { outline: 3px solid #974700; outline-offset: 4px; }
+h1 { line-height: 1.15; font-size: clamp(2rem, 6vw, 3.5rem); overflow-wrap: anywhere; }
+p { max-width: 65ch; }
+
+button, .button-link {
+  display: inline-block;
+  border: 1px solid #075d70;
+  border-radius: 0.35rem;
+  padding: 0.7rem 1rem;
+  color: white;
+  background: #075d70;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+button:hover, .button-link:hover { background: #034858; }
+button:disabled { cursor: wait; opacity: 0.65; }
+
+.account-card {
+  width: min(100%, 36rem);
+  padding: clamp(1.25rem, 5vw, 2.5rem);
+  border: 1px solid #c8d5db;
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 1rem 3rem rgb(24 43 54 / 8%);
+}
+.account-card h1 { margin-block: 0.25rem 1rem; font-size: clamp(2rem, 8vw, 3rem); }
+.account-card form { display: grid; gap: 0.55rem; margin-top: 1.75rem; }
+.account-card form button { justify-self: start; margin-top: 0.75rem; }
+.account-card label { font-weight: 700; }
+.account-card input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 2.75rem;
+  margin-bottom: 0.65rem;
+  border: 1px solid #738892;
+  border-radius: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  color: inherit;
+  background: white;
+  font: inherit;
+}
+.account-card .check-row { display: flex; align-items: center; gap: 0.65rem; font-weight: 500; }
+.account-card .check-row input { width: 1.2rem; height: 1.2rem; }
+.eyebrow { margin: 0; color: #075d70; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.field-help { margin-block: -0.45rem 0.65rem; color: #465e69; font-size: 0.9rem; }
+.field-error { margin-block: -0.45rem 0.65rem; color: #8c2816; font-weight: 700; }
+.form-status { margin-block: 1rem; border-left: 0.3rem solid #075d70; padding: 0.75rem 1rem; background: #edf7f8; }
+.form-status.error { border-color: #a03720; background: #fff3ef; }
+.account-alternate { margin-top: 1.5rem; }
+.security-card { width: min(100%, 48rem); }
+.security-card section { margin-top: 2.5rem; border-top: 1px solid #d8e1e5; padding-top: 1.25rem; }
+.security-card h2 { line-height: 1.25; }
+.session-list { display: grid; gap: 0.75rem; padding: 0; list-style: none; }
+.session-list li { display: grid; gap: 0.35rem; border: 1px solid #c8d5db; border-radius: 0.35rem; padding: 0.9rem; }
+.session-list li span { overflow-wrap: anywhere; color: #465e69; }
+.session-list button { justify-self: start; }
+.danger-button { border-color: #8c2816; background: #8c2816; }
+.danger-button:hover { background: #6d1d0f; }
+.secondary-button { margin-left: 0.65rem; border-color: #465e69; color: #182b36; background: white; }
+.secondary-button:hover { background: #edf2f4; }
+.secret-value code { display: block; margin-top: 0.4rem; overflow-wrap: anywhere; font-size: 1rem; }
+.recovery-codes ul { columns: 2; padding-left: 1.5rem; }
+.recovery-codes code { font-size: 1rem; }
+
+.workspace-shell { width: min(100%, 56rem); }
+.workspace-shell h1 { max-width: 18ch; }
+.scope-summary, .scope-selectors, .workspace-panel, .project-context {
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 1.5rem;
+  border: 1px solid #c8d5db;
+  border-radius: 0.65rem;
+  padding: clamp(1rem, 4vw, 1.5rem);
+  background: white;
+}
+.scope-summary span { overflow-wrap: anywhere; }
+.scope-selectors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.scope-selectors div, .workspace-panel form { display: grid; gap: 0.55rem; }
+.workspace-shell label { font-weight: 700; }
+.workspace-shell input:not([type="checkbox"]), .workspace-shell select, .workspace-shell textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid #738892;
+  border-radius: 0.3rem;
+  padding: 0.55rem 0.7rem;
+  color: inherit;
+  background: white;
+  font: inherit;
+}
+.workspace-shell textarea { min-height: 5rem; resize: vertical; }
+.workspace-shell .check-row { display: flex; align-items: center; gap: 0.65rem; font-weight: 500; }
+.workspace-shell .check-row input { width: 1.2rem; height: 1.2rem; }
+.workspace-panel form button { justify-self: start; margin-top: 0.75rem; }
+.workspace-panel fieldset { display: grid; gap: 0.45rem; margin: 0.75rem 0; border: 1px solid #c8d5db; border-radius: 0.35rem; padding: 0.75rem; }
+.team-list { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.team-list li { display: grid; gap: 0.5rem; border-top: 1px solid #d8e1e5; padding-top: 1rem; overflow-wrap: anywhere; }
+.team-list li > span { color: #465e69; }
+.team-list li > button { justify-self: start; }
+.workspace-links { display: flex; flex-wrap: wrap; gap: 1rem; margin-block: 2rem 1rem; }
+.sign-out.secondary-button { margin-left: 0; }
+.onboarding-steps { display: flex; flex-wrap: wrap; gap: 0.65rem; margin: 1.5rem 0; padding: 0; list-style: none; }
+.onboarding-steps button { border-color: #738892; color: #182b36; background: white; }
+.onboarding-steps button[aria-current="step"] { border-color: #075d70; color: white; background: #075d70; }
+.onboarding-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.onboarding-actions .secondary-button { margin-left: 0; }
+.demo-panel { margin-block: 1rem; border: 2px solid #974700; border-radius: 0.65rem; padding: 1rem; background: #fff7ed; }
+.demo-panel strong { display: block; }
+.read-only-summary { display: grid; gap: 0.35rem; }
+
+@media (max-width: 36rem) {
+  .scope-selectors { grid-template-columns: 1fr; }
+  .onboarding-steps, .onboarding-actions { align-items: stretch; flex-direction: column; }
+  .recovery-codes ul { columns: 1; }
+}

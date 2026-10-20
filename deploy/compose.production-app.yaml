@@ -1,0 +1,56 @@
+x-production-app-environment: &production-app-environment
+  PRODUCTION_APP_HOST: "1"
+  DJANGO_DEBUG: "0"
+  POSTGRES_SSLMODE: verify-full
+  POSTGRES_SSLROOTCERT: /run/organicseoops/postgres-ca.pem
+  REDIS_TLS_CA_FILE: /run/organicseoops/redis-ca.pem
+  CELERY_BROKER_URL: ${PRIVATE_APP_BROKER_URL:?Set authenticated rediss broker URL}
+  DJANGO_CACHE_URL: ${PRIVATE_APP_CACHE_URL:?Set authenticated rediss cache URL}
+  ARTIFACT_STORAGE_BACKEND: s3
+  ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:?Set private artifact bucket}
+
+x-production-app-cas: &production-app-cas
+  - ${PRIVATE_POSTGRES_CA_FILE:?Set private PostgreSQL CA}:/run/organicseoops/postgres-ca.pem:ro
+  - ${PRIVATE_REDIS_CA_FILE:?Set private Redis CA}:/run/organicseoops/redis-ca.pem:ro
+
+services:
+  api:
+    environment:
+      <<: *production-app-environment
+    volumes: *production-app-cas
+
+  proxy:
+    image: ${PROXY_IMAGE:?Set reviewed proxy ECR digest}
+    build: !reset null
+    ports:
+      - "${PRIVATE_API_BIND_IP:?Set owned VPC private address}:80:80"
+    volumes:
+      - ./deploy/nginx.production.conf:/etc/nginx/conf.d/default.conf:ro
+
+  worker-ai:
+    environment:
+      <<: *production-app-environment
+    volumes: *production-app-cas
+
+  worker-crawl:
+    environment:
+      <<: *production-app-environment
+    volumes: *production-app-cas
+
+  worker-audit:
+    environment:
+      <<: *production-app-environment
+    volumes: *production-app-cas
+
+  beat:
+    environment:
+      <<: *production-app-environment
+    volumes: *production-app-cas
+
+  renderer:
+    image: ${RENDERER_IMAGE:?Set reviewed renderer ECR digest}
+    build: !reset null
+
+  # The instance role on this host explicitly cannot read SES feedback.
+  worker-default:
+    profiles: [feedback-only]

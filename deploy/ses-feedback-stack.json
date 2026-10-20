@@ -1,0 +1,115 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Private SES feedback SNS topic, SQS queue and encrypted redrive DLQ; prepare only",
+  "Parameters": {
+    "SesIdentityArn": {
+      "Type": "String",
+      "Description": "Exact verified SES identity ARN in this account and region"
+    }
+  },
+  "Resources": {
+    "FeedbackTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": { "TopicName": "organicseoops-mail-feedback" }
+    },
+    "FeedbackTopicPolicy": {
+      "Type": "AWS::SNS::TopicPolicy",
+      "Properties": {
+        "Topics": [{ "Ref": "FeedbackTopic" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "ses.amazonaws.com" },
+              "Action": "sns:Publish",
+              "Resource": { "Ref": "FeedbackTopic" },
+              "Condition": {
+                "StringEquals": { "aws:SourceAccount": { "Ref": "AWS::AccountId" } },
+                "ArnEquals": { "aws:SourceArn": { "Ref": "SesIdentityArn" } }
+              }
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "sns:Publish",
+              "Resource": { "Ref": "FeedbackTopic" },
+              "Condition": { "ArnNotEquals": { "aws:SourceArn": { "Ref": "SesIdentityArn" } } }
+            }
+          ]
+        }
+      }
+    },
+    "FeedbackDeadLetterQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "organicseoops-mail-feedback-deadletter",
+        "SqsManagedSseEnabled": true,
+        "MessageRetentionPeriod": 1209600
+      }
+    },
+    "FeedbackQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "organicseoops-mail-feedback",
+        "SqsManagedSseEnabled": true,
+        "VisibilityTimeout": 60,
+        "MessageRetentionPeriod": 345600,
+        "RedrivePolicy": {
+          "deadLetterTargetArn": { "Fn::GetAtt": ["FeedbackDeadLetterQueue", "Arn"] },
+          "maxReceiveCount": 5
+        }
+      }
+    },
+    "FeedbackQueuePolicy": {
+      "Type": "AWS::SQS::QueuePolicy",
+      "Properties": {
+        "Queues": [{ "Ref": "FeedbackQueue" }],
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "sns.amazonaws.com" },
+              "Action": "sqs:SendMessage",
+              "Resource": { "Fn::GetAtt": ["FeedbackQueue", "Arn"] },
+              "Condition": {
+                "ArnEquals": { "aws:SourceArn": { "Ref": "FeedbackTopic" } },
+                "StringEquals": { "aws:SourceAccount": { "Ref": "AWS::AccountId" } }
+              }
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "sqs:SendMessage",
+              "Resource": { "Fn::GetAtt": ["FeedbackQueue", "Arn"] },
+              "Condition": { "ArnNotEquals": { "aws:SourceArn": { "Ref": "FeedbackTopic" } } }
+            },
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "sqs:*",
+              "Resource": { "Fn::GetAtt": ["FeedbackQueue", "Arn"] },
+              "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+            }
+          ]
+        }
+      }
+    },
+    "FeedbackSubscription": {
+      "Type": "AWS::SNS::Subscription",
+      "Properties": {
+        "TopicArn": { "Ref": "FeedbackTopic" },
+        "Protocol": "sqs",
+        "Endpoint": { "Fn::GetAtt": ["FeedbackQueue", "Arn"] },
+        "RawMessageDelivery": false
+      },
+      "DependsOn": ["FeedbackQueuePolicy", "FeedbackTopicPolicy"]
+    }
+  },
+  "Outputs": {
+    "TopicArn": { "Value": { "Ref": "FeedbackTopic" } },
+    "QueueUrl": { "Value": { "Ref": "FeedbackQueue" } },
+    "QueueArn": { "Value": { "Fn::GetAtt": ["FeedbackQueue", "Arn"] } }
+  }
+}

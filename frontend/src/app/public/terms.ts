@@ -1,0 +1,73 @@
+import { DOCUMENT } from '@angular/common';
+import { Component, inject, OnDestroy } from '@angular/core';
+import { Meta } from '@angular/platform-browser';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+
+const termsTurkish: Record<string, string> = {
+  "Product terms and responsibilities": "Ürün koşulları ve sorumluluklar",
+  "Unreviewed local English/Turkish terms draft. Bilingual human approval and public release are pending. This explains selected product boundaries, not an approved contract or an available offer. Public trials and payments are not open.": "İncelenmemiş yerel İngilizce/Türkçe koşullar taslağı. İki dilli insan onayı ve herkese açık yayımlama bekleniyor. Bu metin seçili ürün sınırlarını açıklar; onaylı sözleşme veya mevcut teklif değildir. Herkese açık deneme ve ödeme sunulmaz.",
+  "Account, organization and project responsibilities": "Hesap, kuruluş ve proje sorumlulukları",
+  "Organizations own trials, subscriptions and entitlements; projects separate client domains and data. Use current authorized membership and project scope for supported actions. Owners handle organization billing and ownership; other roles do not gain those powers from knowing an identifier or URL. Protect account credentials and use the supported verification, reauthentication and recovery flows. Personal access shutdown, organization closure and subscription cancellation are separate; leave every active organization before personal access closure; an owner must first transfer ownership or deliberately close the organization.": "Kuruluşlar denemelerin, aboneliklerin ve kullanım haklarının sahibidir; projeler müşteri alan adlarını ve verilerini ayırır. Desteklenen işlemler için güncel yetkili üyelik ve proje kapsamını kullanın. Kuruluş sahipleri faturalandırma ve sahipliği yönetir; diğer roller kimlik veya URL bilgisiyle bu yetkileri kazanmaz. Hesap kimlik bilgilerini koruyun ve desteklenen doğrulama, yeniden doğrulama ve kurtarma akışlarını kullanın. Kişisel erişim kapatma, kuruluş kapatma ve abonelik iptali ayrıdır; kişisel erişimi kapatmadan önce her aktif kuruluştan ayrılın; bir kuruluş sahibi önce sahipliği aktarmalı veya kuruluşu bilinçli olarak kapatmalıdır.",
+  "Source rights and bounded work": "Kaynak hakları ve sınırlı işlemler",
+  "Supply only material with appropriate use and storage rights, and respect the selected source scope, collection permissions and provider terms. A public URL, connected account or declaration does not verify permission for every use. Supported work is bounded by current access, entitlements, estimates, usage and independent safety/provider budgets. Internal units are operational work, not money or purchasable credits. The product does not authorize automated backlink, comment, message or engagement spam. Active security scanning requires explicit scope, ownership verification and authorization; ordinary SEO access does not grant that authority.": "Yalnızca uygun kullanım ve depolama haklarına sahip materyal sağlayın; seçili kaynak kapsamına, toplama izinlerine ve sağlayıcı koşullarına uyun. Herkese açık URL, bağlı hesap veya beyan her kullanımın iznini doğrulamaz. Desteklenen işlemler güncel erişim, kullanım hakları, tahminler, kullanım ve bağımsız güvenlik/sağlayıcı bütçeleriyle sınırlıdır. Dahili birimler operasyonel işlemdir; para veya satın alınabilir kredi değildir. Ürün otomatik geri bağlantı, yorum, mesaj veya etkileşim spam’ine yetki vermez. Aktif güvenlik taraması açık kapsam, sahiplik doğrulaması ve yetkilendirme gerektirir; olağan SEO erişimi bu yetkiyi vermez.",
+  "Evidence, AI drafts and human approval": "Kanıtlar, AI taslakları ve insan onayı",
+  "Read source dates, scope, missing coverage and uncertainty before acting. Local fixtures and synthetic examples are not customer results or live provider acceptance. Deterministic code calculates objective SEO and analytics results; selected AI work supports classification, synthesis, prioritization and drafting. Content and remediation require human approval. An approved draft is not evidence of publication, execution, indexing, ranking or business outcomes. Actual supported provider capabilities, processing terms and costs must be checked separately; no ranking, revenue or universal AI accuracy guarantee is established here.": "İşlemden önce kaynak tarihlerini, kapsamını, eksik kapsama ve belirsizliği okuyun. Yerel test örnekleri ve sentetik örnekler müşteri sonuçları veya canlı sağlayıcı kabulü değildir. Deterministik kod nesnel SEO ve analitik sonuçlarını hesaplar; seçili AI işlemleri sınıflandırma, sentez, önceliklendirme ve taslak hazırlamayı destekler. İçerik ve düzeltmeler insan onayı gerektirir. Onaylı taslak yayımlama, uygulama, dizine ekleme, sıralama veya iş sonuçlarının kanıtı değildir. Gerçek desteklenen sağlayıcı yetenekleri, işleme koşulları ve maliyetleri ayrıca kontrol edilmelidir; burada sıralama, gelir veya evrensel AI doğruluğu garantisi verilmez.",
+  "Planned offer, cancellation and data choices": "Planlanan teklif, iptal ve veri seçimleri",
+  "The planned Agency offer and limits are explained in the local pricing draft. No card is required for the selected 30-day trial. Deliberate owner checkout during an active trial plans immediate charging and immediate trial end; paid subscriptions plan monthly renewal and period-end cancellation. Verified server-side provider state, not a return-page view, determines paid access. Failed renewal, refunds and retention have separate policies; cancellation is not an immediate deletion command. Read the local cancellation and privacy explanations for retained access, bounded exports, disabled organization closure and unverified hosted deletion. No payment, cancellation, erasure or consent is performed by reading this page.": "Planlanan Agency teklifi ve sınırları yerel fiyatlandırma taslağında açıklanır. Seçili 30 günlük deneme için kart gerekmez. Aktif denemede sahibin bilinçli ödeme işlemi anında tahsilat ve denemenin hemen bitmesini planlar; ücretli abonelikler aylık yenileme ve dönem sonu iptal planlar. Ücretli erişimi dönüş sayfasının görüntülenmesi değil, sunucuda doğrulanmış sağlayıcı durumu belirler. Başarısız yenileme, iadeler ve saklama ayrı politikalara sahiptir; iptal anında silme komutu değildir. Korunan erişim, sınırlı dışa aktarımlar, devre dışı kuruluş kapatma ve doğrulanmamış barındırılan silme için yerel iptal ve gizlilik açıklamalarını okuyun. Bu sayfayı okumak ödeme, iptal, silme veya onay işlemi yapmaz.",
+  "Contract facts and public readiness remain pending": "Sözleşme bilgileri ve herkese açık hazırlık bekleniyor",
+  "Founder and counsel must approve seller identity and contact, applicable law and jurisdiction, contract acceptance, intellectual-property and licensing terms, liability, dispute handling and mandatory rights before publication. No service-level, support-response, refund or enforceable legal promise is established by this draft. Actual bilingual review, provider/payment readiness and hosted operational evidence remain separate release gates. The local contact explanation does not provide an approved public legal or privacy-request destination.": "Yayımlamadan önce kurucu ve hukukçu satıcı kimliği ve iletişimi, geçerli hukuk ve yargı yetkisi, sözleşme kabulü, fikri mülkiyet ve lisans koşulları, sorumluluk, uyuşmazlık yönetimi ve zorunlu hakları onaylamalıdır. Bu taslak hizmet seviyesi, destek yanıtı, iade veya uygulanabilir yasal söz oluşturmaz. Gerçek iki dilli inceleme, sağlayıcı/ödeme hazırlığı ve barındırılan operasyonel kanıtlar ayrı yayımlama koşullarıdır. Yerel iletişim açıklaması onaylı herkese açık yasal veya gizlilik talebi adresi sağlamaz.",
+  "Read planned pricing and limits": "Planlanan fiyatı ve sınırları okuyun",
+  "Read cancellation and retained access": "İptal ve korunan erişimi okuyun",
+  "Read privacy and data choices": "Gizlilik ve veri seçimlerini okuyun",
+  "Read contact and support limits": "İletişim ve destek sınırlarını okuyun",
+  "Return to the development home": "Geliştirme ana sayfasına dönün"
+};
+
+@Component({
+  selector: 'app-terms',
+  imports: [RouterLink],
+  template: `
+    <article class="terms-draft" [attr.lang]="language">
+      <nav aria-label="Language / Dil">
+        <a routerLink="/preview/terms" lang="en" [attr.aria-current]="language === 'en' ? 'page' : null">English</a>
+        · <a routerLink="/preview/tr/terms" lang="tr" [attr.aria-current]="language === 'tr' ? 'page' : null">Türkçe (taslak)</a>
+      </nav>
+      <h1>{{ t("Product terms and responsibilities") }}</h1>
+      <p role="status">{{ t("Unreviewed local English/Turkish terms draft. Bilingual human approval and public release are pending. This explains selected product boundaries, not an approved contract or an available offer. Public trials and payments are not open.") }}</p>
+      <section aria-labelledby="terms-0"><h2 id="terms-0">{{ t("Account, organization and project responsibilities") }}</h2><p>{{ t("Organizations own trials, subscriptions and entitlements; projects separate client domains and data. Use current authorized membership and project scope for supported actions. Owners handle organization billing and ownership; other roles do not gain those powers from knowing an identifier or URL. Protect account credentials and use the supported verification, reauthentication and recovery flows. Personal access shutdown, organization closure and subscription cancellation are separate; leave every active organization before personal access closure; an owner must first transfer ownership or deliberately close the organization.") }}</p></section>
+      <section aria-labelledby="terms-1"><h2 id="terms-1">{{ t("Source rights and bounded work") }}</h2><p>{{ t("Supply only material with appropriate use and storage rights, and respect the selected source scope, collection permissions and provider terms. A public URL, connected account or declaration does not verify permission for every use. Supported work is bounded by current access, entitlements, estimates, usage and independent safety/provider budgets. Internal units are operational work, not money or purchasable credits. The product does not authorize automated backlink, comment, message or engagement spam. Active security scanning requires explicit scope, ownership verification and authorization; ordinary SEO access does not grant that authority.") }}</p></section>
+      <section aria-labelledby="terms-2"><h2 id="terms-2">{{ t("Evidence, AI drafts and human approval") }}</h2><p>{{ t("Read source dates, scope, missing coverage and uncertainty before acting. Local fixtures and synthetic examples are not customer results or live provider acceptance. Deterministic code calculates objective SEO and analytics results; selected AI work supports classification, synthesis, prioritization and drafting. Content and remediation require human approval. An approved draft is not evidence of publication, execution, indexing, ranking or business outcomes. Actual supported provider capabilities, processing terms and costs must be checked separately; no ranking, revenue or universal AI accuracy guarantee is established here.") }}</p></section>
+      <section aria-labelledby="terms-3"><h2 id="terms-3">{{ t("Planned offer, cancellation and data choices") }}</h2><p>{{ t("The planned Agency offer and limits are explained in the local pricing draft. No card is required for the selected 30-day trial. Deliberate owner checkout during an active trial plans immediate charging and immediate trial end; paid subscriptions plan monthly renewal and period-end cancellation. Verified server-side provider state, not a return-page view, determines paid access. Failed renewal, refunds and retention have separate policies; cancellation is not an immediate deletion command. Read the local cancellation and privacy explanations for retained access, bounded exports, disabled organization closure and unverified hosted deletion. No payment, cancellation, erasure or consent is performed by reading this page.") }}</p></section>
+      <section aria-labelledby="terms-4"><h2 id="terms-4">{{ t("Contract facts and public readiness remain pending") }}</h2><p>{{ t("Founder and counsel must approve seller identity and contact, applicable law and jurisdiction, contract acceptance, intellectual-property and licensing terms, liability, dispute handling and mandatory rights before publication. No service-level, support-response, refund or enforceable legal promise is established by this draft. Actual bilingual review, provider/payment readiness and hosted operational evidence remain separate release gates. The local contact explanation does not provide an approved public legal or privacy-request destination.") }}</p></section>
+      <p><a [routerLink]="language === 'tr' ? '/preview/tr/pricing' : '/preview/pricing'">{{ t("Read planned pricing and limits") }}</a></p>
+      <p><a [routerLink]="language === 'tr' ? '/preview/tr/cancellation' : '/preview/cancellation'">{{ t("Read cancellation and retained access") }}</a></p>
+      <p><a [routerLink]="language === 'tr' ? '/preview/tr/privacy' : '/preview/privacy'">{{ t("Read privacy and data choices") }}</a></p>
+      <p><a [routerLink]="language === 'tr' ? '/preview/tr/contact' : '/preview/contact'">{{ t("Read contact and support limits") }}</a></p>
+      <p><a [routerLink]="language === 'tr' ? '/preview/tr/home' : '/'">{{ t("Return to the development home") }}</a></p>
+    </article>
+  `,
+  styles: `
+    .terms-draft { max-width: 52rem; margin-inline: auto; color: #182b36; overflow-wrap: anywhere; }
+    nav { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    section { border-top: 1px solid #b9cfd5; padding-block: 1rem; }
+  `,
+})
+export class Terms implements OnDestroy {
+  readonly language = inject(ActivatedRoute).snapshot.data['language'] === 'tr' ? 'tr' : 'en';
+  private readonly document = inject(DOCUMENT);
+  private readonly meta = inject(Meta);
+  t(text: string) { return this.language === 'tr' ? termsTurkish[text] ?? text : text; }
+
+  constructor() {
+    this.document.documentElement.lang = this.language;
+    this.meta.updateTag({ name: 'description', content: this.language === 'tr'
+      ? 'OrganicSEOOps ürün koşulları: incelenmemiş Türkçe taslak; onaylı sözleşme değildir.'
+      : 'OrganicSEOOps product terms: unreviewed local draft, not an approved contract.' });
+  }
+
+  ngOnDestroy() {
+    this.document.documentElement.lang = 'en';
+    this.meta.updateTag({ name: 'description', content:
+      'Development preview of an SEO evidence workflow for agency teams. Public trials and payments are not open.' });
+  }
+}

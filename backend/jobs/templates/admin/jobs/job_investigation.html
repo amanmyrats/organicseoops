@@ -1,0 +1,64 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization, project and job ID with a categorical reason. Job status requires both job and step view permissions; internal-unit history requires both job and reservation view permissions; original AI observations require both job and AI usage view permissions. Current session MFA is required for every action, and each successful inspection is audited. No customer payload, raw error, provider request/response identifiers, billing, credential or impersonation access is granted.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}
+  {{ scope_form.as_p }}
+  {% if can_job %}<button type="submit" name="action" value="inspect">Inspect current scoped job status</button>{% endif %}
+  {% if can_usage %}<button type="submit" name="action" value="inspect_usage">Inspect current scoped internal-unit history</button>{% endif %}
+  {% if can_ai_usage %}<button type="submit" name="action" value="inspect_ai_usage">Inspect original scoped AI observations</button>{% endif %}
+</form>
+{% if investigation %}
+<section aria-labelledby="job-status-title">
+  <h2 id="job-status-title">Recorded job {{ investigation.job.id }}</h2>
+  <p>Status {{ investigation.job.status }} · created {{ investigation.job.created_at }} · last updated {{ investigation.job.updated_at }}.</p>
+  <p>Dates are record timestamps, not completion or incident time. Step progress is producer-recorded, not verified completion or an SEO result. This view establishes no root cause, important failure, retry eligibility or correction authority; it performs no retry.</p>
+  <div style="overflow-x:auto">
+    <table>
+      <caption>Complete bounded recorded steps for this job</caption>
+      <thead><tr><th scope="col">Sequence</th><th scope="col">Status</th><th scope="col">Recorded progress (%)</th><th scope="col">Created (UTC offset shown)</th></tr></thead>
+      <tbody>{% for step in investigation.steps %}
+        <tr><th scope="row">{{ step.sequence }}</th><td>{{ step.status }}</td><td>{{ step.progress_percent }}</td><td>{{ step.created_at }}</td></tr>
+      {% empty %}<tr><td colspan="4">No retained recorded steps. This is not evidence that work never started.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% if usage %}
+<section aria-labelledby="usage-title">
+  <h2 id="usage-title">Recorded internal-unit history for job {{ usage.job.id }}</h2>
+  <p>Recorded job status {{ usage.job.status }} · created {{ usage.job.created_at }} · last updated {{ usage.job.updated_at }}. These are record timestamps, not completion or incident time.</p>
+  <p>Internal units are not provider tokens, currency, invoices or customer charges. Actual units can exceed the reserved estimate. This history does not establish current entitlement or authorize a correction, reconciliation or job retry.</p>
+  {% if usage.reservation %}
+  <dl>
+    <dt>Reservation state</dt><dd>{{ usage.reservation.state }}</dd>
+    <dt>Recorded internal accounting month start</dt><dd>{{ usage.reservation.period_start }}</dd>
+    <dt>Reserved estimate (internal units)</dt><dd>{{ usage.reservation.reserved_units }}</dd>
+    <dt>Recorded actual (internal units)</dt><dd>{{ usage.reservation.actual_units }}</dd>
+    <dt>Reservation created</dt><dd>{{ usage.reservation.created_at }}</dd>
+    <dt>Settlement recorded</dt><dd>{% if usage.reservation.settled_at %}{{ usage.reservation.settled_at }}{% else %}Not settled; recorded actual zero is not a final consumption result.{% endif %}</dd>
+  </dl>
+  {% else %}<p>No retained reservation history. Missing history is not zero usage or proof of no work.</p>{% endif %}
+</section>
+{% endif %}
+{% if ai_usage %}
+<section aria-labelledby="ai-usage-title">
+  <h2 id="ai-usage-title">Original AI observations for job {{ ai_usage.job.id }}</h2>
+  <p>Recorded customer job status {{ ai_usage.job.status }} · created {{ ai_usage.job.created_at }} · last updated {{ ai_usage.job.updated_at }}. These are record timestamps, not completion or incident time.</p>
+  <p>Provider outcome and customer job status are separate: a provider-completed request may have a cancelled customer job. Failed or unknown attempts are not evidence of no work, refunds or retry eligibility. This view makes no request or correction.</p>
+  {% if ai_usage.observation %}
+  <dl>
+    <dt>Original provider outcome</dt><dd>{{ ai_usage.observation.status }}</dd>
+    <dt>Recorded input tokens</dt><dd>{% if ai_usage.observation.input_tokens is None %}Unknown{% else %}{{ ai_usage.observation.input_tokens }}{% endif %}</dd>
+    <dt>Recorded output tokens</dt><dd>{% if ai_usage.observation.output_tokens is None %}Unknown{% else %}{{ ai_usage.observation.output_tokens }}{% endif %}</dd>
+    <dt>Recorded duration (milliseconds)</dt><dd>{% if ai_usage.observation.duration_ms is None %}Unknown{% else %}{{ ai_usage.observation.duration_ms }}{% endif %}</dd>
+    <dt>Original estimated cost (USD)</dt><dd>{% if ai_usage.observation.estimated_cost_usd is None %}Unknown{% else %}{{ ai_usage.observation.estimated_cost_usd }}{% endif %}</dd>
+    <dt>Original reported cost (USD)</dt><dd>{% if ai_usage.observation.reported_cost_usd is None %}Unknown{% else %}{{ ai_usage.observation.reported_cost_usd }}{% endif %}</dd>
+    <dt>Attempt recorded</dt><dd>{{ ai_usage.observation.attempted_at }}</dd>
+    <dt>Finish recorded</dt><dd>{% if ai_usage.observation.finished_at %}{{ ai_usage.observation.finished_at }}{% else %}No recorded final outcome{% endif %}</dd>
+  </dl>
+  <p>Unknown values are not zero. The estimate is the original recorded estimate, not recomputed using current prices. Estimated and reported USD are separate from internal units, invoices, customer charges and payments. Current producers do not populate reported USD; even a retained reported value is not billing proof. Attempt and finish timestamps are server recording dates, not provider invoice dates or verified job completion.</p>
+  {% else %}<p>No retained AI observation. Missing history is not zero tokens, zero cost or proof of no work.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

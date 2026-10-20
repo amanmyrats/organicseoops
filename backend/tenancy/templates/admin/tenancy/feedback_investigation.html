@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use exact IDs obtained through authorized support. User, suppression and feedback view permissions plus current session MFA are required. Every inspection is audited.</p>
+<p>Current record linkage is not proof of the original recipient, provider occurrence, current suppression applicability or clearance eligibility. These dates record local receipt and suppression creation, not SES event occurrence. Later feedback does not replace the first linked receipt. Retained inactive/access-closed history is restricted, not erased.</p>
+<p>Inspection never clears, sends or replays mail. Reviewed clearance remains separately permitted; no addresses, event IDs, payloads or raw digests are shown.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}
+  <button type="submit" name="action" value="inspect">Inspect exact retained feedback</button>
+</form>
+{% if inspection %}
+<h2>Recorded suppression {{ inspection.suppression.id }}</h2>
+<p>Current user {{ inspection.user_id }} · address record {{ inspection.email_address_id }} · first feedback {{ inspection.feedback.id }}</p>
+<dl>
+<dt>Recorded suppression reason</dt><dd>{{ inspection.suppression.reason }}</dd>
+<dt>Suppression created locally (UTC)</dt><dd>{{ inspection.suppression.created_at }}</dd>
+<dt>First linked feedback kind</dt><dd>{{ inspection.feedback.kind }}</dd>
+<dt>Feedback received locally (UTC)</dt><dd>{{ inspection.feedback.received_at }}</dd>
+</dl>
+{% endif %}
+{% endblock %}

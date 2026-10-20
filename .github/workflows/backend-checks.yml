@@ -1,0 +1,125 @@
+name: Exhaustive backend image checks
+
+on:
+  workflow_call:
+    outputs:
+      artifact-id:
+        value: ${{ jobs.build.outputs.artifact-id }}
+      archive-sha256:
+        value: ${{ jobs.build.outputs.archive-sha256 }}
+      image-ids:
+        value: ${{ jobs.build.outputs.image-ids }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      archive-sha256: ${{ steps.images.outputs.archive-sha256 }}
+      image-ids: ${{ steps.images.outputs.image-ids }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify source and lint workflows
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          docker run --rm --mount "type=bind,src=${PWD},dst=/repo,readonly" --workdir /repo \
+            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 \
+            .github/workflows/ci.yml .github/workflows/backend-checks.yml .github/workflows/backend-release.yml
+      - name: Check source and create private CI environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/check-tools"
+          "$RUNNER_TEMP/check-tools/bin/python" -m pip install pip==26.2.1
+          "$RUNNER_TEMP/check-tools/bin/python" -m pip install -r deploy/checks/requirements.txt
+          "$RUNNER_TEMP/check-tools/bin/python" -m unittest discover -s deploy/checks -p 'test_*.py'
+          python3 deploy/checks/create_check_env.py backend/.env.ci
+          docker compose --env-file backend/.env.ci config --quiet
+          python3 deploy/checks/check_volume_transition.py --env-file backend/.env.ci
+      - name: Build and verify runtime images
+        run: |
+          docker compose --env-file backend/.env.ci build api postgres renderer proxy
+          docker compose --env-file backend/.env.ci up -d --no-build --wait --wait-timeout 180
+          docker compose --env-file backend/.env.ci run --rm --no-deps --no-build api python manage.py check
+          docker compose --env-file backend/.env.ci run --rm --no-deps --no-build api python manage.py migrate --noinput
+          docker compose --env-file backend/.env.ci run --rm --no-deps --no-build api python manage.py makemigrations --check --dry-run
+          python3 deploy/checks/compose_smoke.py --env-file backend/.env.ci
+          bash deploy/checks/security.sh backend/.env.ci
+      - name: Save only the exact checked images
+        id: images
+        run: |
+          images=(organicseoops-backend:local organicseoops-renderer:local organicseoops-postgres:local organicseoops-proxy:local)
+          # All six backend processes share the API image; Redis remains digest-pinned.
+          for service in api renderer postgres proxy; do
+            container="$(docker compose --env-file backend/.env.ci ps -q "$service")"
+            test -n "$container"
+            case "$service" in api) image=organicseoops-backend:local ;; *) image="organicseoops-$service:local" ;; esac
+            test "$(docker inspect --format '{{.Image}}' "$container")" = "$(docker image inspect --format '{{.Id}}' "$image")"
+          done
+          docker image save --output "$RUNNER_TEMP/backend-images.tar" "${images[@]}"
+          archive_sha256="$(sha256sum "$RUNNER_TEMP/backend-images.tar")"
+          echo "archive-sha256=${archive_sha256%% *}" >> "$GITHUB_OUTPUT"
+          {
+            echo 'image-ids<<IMAGE_IDS'
+            docker image inspect --format '{{.Id}}' "${images[@]}"
+            echo IMAGE_IDS
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: upload
+        with:
+          name: backend-images-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/backend-images.tar
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Stop CI services even on failure
+        if: always()
+        run: |
+          if test -f backend/.env.ci; then docker compose --env-file backend/.env.ci down; fi
+
+  tests:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    env:
+      BACKEND_CHECK_SHARD: ${{ matrix.shard }}
+      EXPECTED_ARCHIVE_SHA256: ${{ needs.build.outputs.archive-sha256 }}
+      EXPECTED_IMAGE_IDS: ${{ needs.build.outputs.image-ids }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/backend-images
+          digest-mismatch: error
+      - name: Verify and load exact checked images
+        run: |
+          [[ "$EXPECTED_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          printf '%s  %s\n' "$EXPECTED_ARCHIVE_SHA256" "$RUNNER_TEMP/backend-images/backend-images.tar" | sha256sum --check --status
+          docker image load --input "$RUNNER_TEMP/backend-images/backend-images.tar"
+          test "$(docker image inspect --format '{{.Id}}' organicseoops-backend:local organicseoops-renderer:local organicseoops-postgres:local organicseoops-proxy:local)" = "$EXPECTED_IMAGE_IDS"
+      - name: Discover all six apps and run this complete group
+        run: |
+          python3 deploy/checks/create_check_env.py backend/.env.ci
+          docker compose --env-file backend/.env.ci up -d --no-build --wait --wait-timeout 180 postgres redis
+          docker compose --env-file backend/.env.ci run --rm --no-deps --no-build api python manage.py test \
+            accounts config tenancy jobs providers integrations --noinput --durations 20 --timing \
+            --testrunner config.sharded_test_runner.ShardedDiscoverRunner --shard "$BACKEND_CHECK_SHARD"
+      - name: Stop CI services even on failure
+        if: always()
+        run: |
+          if test -f backend/.env.ci; then docker compose --env-file backend/.env.ci down; fi

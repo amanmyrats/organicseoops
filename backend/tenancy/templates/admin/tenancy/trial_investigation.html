@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use exact organization and trial IDs already obtained through authorized support. Separate organization, trial and eligibility view permissions and current session MFA are required; every delivered inspection is audited. No broad trial or eligibility discovery is available here.</p>
+<p>Retained suspended, closed and old commercial history can be inspected. Recorded ACTIVE can remain after its end: these mutable dates, state and policy values are not effective paid access, remaining usage, activation proof, extension history or correction eligibility. Older policy values do not establish current offer eligibility.</p>
+<p><a href="{% url 'admin:tenancy_organizationtrial_corrections' %}">Exact trial corrections (separate change permission and MFA)</a></p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained trial</button></form>
+{% if inspection %}
+<h2>Recorded trial {{ inspection.trial.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Recorded state</dt><dd>{{ inspection.trial.state }}</dd>
+<dt>Recorded offer</dt><dd>{{ inspection.trial.offer_version }}</dd>
+<dt>Recorded project limit</dt><dd>{{ inspection.trial.project_limit }}</dd>
+<dt>Recorded member limit</dt><dd>{{ inspection.trial.member_limit }}</dd>
+<dt>Recorded internal-unit limit (not remaining units)</dt><dd>{{ inspection.trial.unit_limit }}</dd>
+<dt>Original start (UTC)</dt><dd>{{ inspection.trial.started_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded end (UTC)</dt><dd>{{ inspection.trial.ends_at|default_if_none:"Not recorded" }}</dd>
+<dt>Local record creation (UTC)</dt><dd>{{ inspection.trial.created_at }}</dd>
+<dt>Local last record update (UTC)</dt><dd>{{ inspection.trial.updated_at }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Source binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

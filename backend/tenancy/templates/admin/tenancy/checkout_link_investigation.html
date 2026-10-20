@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID and local checkout link receipt ID obtained through authorized support, not a provider transaction ID. Organization and checkout link receipt view permissions and current session MFA are required; every delivered inspection is audited. No broad receipt discovery is available here.</p>
+<p>This retained record describes the original owner/browser acknowledgment of obtaining an application-hosted link. It is not provider page loading, payment, first-ever conversion, current link eligibility or retry authority. Missing records do not prove no delivery or payment. This inspector does not issue a proof, acknowledge a link, contact the provider or reconcile billing.</p>
+<p>Retained suspended, closed, old and other-environment history can be inspected. Later payment, SETTLED checkout, seller rotation or original actor role loss do not rewrite the capture. The local acknowledgment date is not provider occurrence time. Original proof issue and expiry bytes are not retained and cannot be reconstructed. Original source binding and retained observation binding are separate digests.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained link acknowledgment</button></form>
+{% if inspection %}
+<h2>Recorded link acknowledgment {{ inspection.receipt.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Local checkout attempt ID</dt><dd>{{ inspection.receipt.attempt_id }}</dd>
+<dt>Local browser acknowledgment (UTC)</dt><dd>{{ inspection.receipt.acknowledged_at }}</dd>
+<dt>Original capture source binding</dt><dd>{{ inspection.receipt.original_source_digest }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Retained observation binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

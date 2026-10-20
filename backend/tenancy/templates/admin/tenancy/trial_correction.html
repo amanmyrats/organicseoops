@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID already obtained through authorized support. Current trial change permission and session MFA are required. Every successful correction records the existing before/after/reason audit. This form grants no broad diagnostic access.</p>
+<p>Approve only a pending eligible trial once for 30 days. An eligible active or expired/read-only trial can receive one extension to its original start +37 days. Original start, eligibility, allowances and consumed usage are preserved on extension. Paid, suspended, closed, already extended or policy-mismatched organizations are unavailable. This never marks an unpaid account paid or contacts a billing provider.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ correction_form.as_p }}
+<button type="submit">Apply explicitly confirmed trial correction</button>
+</form>
+{% if corrected %}
+<h2>Recorded correction for organization {{ corrected.organization_id }}</h2>
+<dl><dt>Trial record</dt><dd>{{ corrected.trial_id }}</dd>
+<dt>Recorded state</dt><dd>{{ corrected.state }}</dd>
+<dt>Original start (UTC)</dt><dd>{{ corrected.started_at }}</dd>
+<dt>Corrected end (UTC)</dt><dd>{{ corrected.ends_at }}</dd></dl>
+<p>This records the successful correction only, not payment, current usage availability or a new trial grant on retry. Refreshing this form does not repeat the command.</p>
+{% endif %}
+{% endblock %}

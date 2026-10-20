@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID and local subscription record ID already obtained through authorized support, not a provider ID. Organization and subscription view permissions and current session MFA are required; every delivered inspection is audited. No broad subscription discovery is available here.</p>
+<p>Retained suspended, closed, old and other-environment records can be inspected. Recorded status and dates are not current paid access, remaining usage, lifetime identity/history, retry eligibility or cancellation authority. A local record ID may survive provider identity replacement on recheckout.</p>
+<p>Local verification time is a server observation, not provider activation or first payment. Missing verification remains unknown. Provider dates can be future; a recovered grace usage anchor may remain after failure clears. ACTIVE may coexist with refund/dispute/adverse holds or a separately confirmed closure cancellation ledger; this inspector does not read that ledger or establish cancellation outcome.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained subscription</button></form>
+{% if inspection %}
+<h2>Recorded linked subscription {{ inspection.subscription.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Recorded environment</dt><dd>{{ inspection.subscription.environment }}</dd>
+<dt>Recorded status</dt><dd>{{ inspection.subscription.status }}</dd>
+<dt>Local verification observation (UTC)</dt><dd>{{ inspection.subscription.verified_at|default_if_none:"Unknown" }}</dd>
+<dt>Recorded provider period start (UTC)</dt><dd>{{ inspection.subscription.period_starts_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded provider period end (UTC)</dt><dd>{{ inspection.subscription.period_ends_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded failure time (UTC)</dt><dd>{{ inspection.subscription.failed_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded grace usage anchor (UTC)</dt><dd>{{ inspection.subscription.grace_usage_starts_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded scheduled cancellation (UTC)</dt><dd>{{ inspection.subscription.scheduled_cancel_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded cancellation (UTC)</dt><dd>{{ inspection.subscription.canceled_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded full refund (UTC)</dt><dd>{{ inspection.subscription.refunded_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded dispute (UTC)</dt><dd>{{ inspection.subscription.disputed_at|default_if_none:"Not recorded" }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Source binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

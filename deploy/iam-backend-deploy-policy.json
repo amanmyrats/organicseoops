@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrAuthenticationOnly",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PushOnlyReviewedRuntimeRepositories",
+      "Effect": "Allow",
+      "Action": ["ecr:BatchCheckLayerAvailability", "ecr:CompleteLayerUpload", "ecr:InitiateLayerUpload", "ecr:PutImage", "ecr:UploadLayerPart", "ecr:BatchGetImage", "ecr:DescribeImages"],
+      "Resource": ["${BACKEND_ECR_REPOSITORY_ARN}", "${RENDERER_ECR_REPOSITORY_ARN}", "${POSTGRES_ECR_REPOSITORY_ARN}", "${PROXY_ECR_REPOSITORY_ARN}"]
+    },
+    {
+      "Sid": "WriteOnlyReleaseBundles",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::${RELEASE_BUCKET_NAME}/releases/*"
+    },
+    {
+      "Sid": "RunOnlyReviewedBackendHosts",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ssm:${AWS_REGION}::document/AWS-RunShellScript",
+        "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:instance/${APP_INSTANCE_ID}",
+        "arn:aws:ec2:${AWS_REGION}:${AWS_ACCOUNT_ID}:instance/${FEEDBACK_INSTANCE_ID}"
+      ]
+    },
+    {
+      "Sid": "ObserveSentCommands",
+      "Effect": "Allow",
+      "Action": "ssm:GetCommandInvocation",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:RequestedRegion": "${AWS_REGION}" } }
+    }
+  ]
+}

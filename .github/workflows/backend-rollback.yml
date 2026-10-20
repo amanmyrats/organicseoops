@@ -1,0 +1,117 @@
+name: Compatible backend image rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        type: string
+        required: true
+        description: Previously verified release bundle's source commit
+      bundle_sha256:
+        type: string
+        required: true
+        description: Previously verified release bundle checksum
+      backend_image:
+        type: string
+        required: true
+        description: Previous compatible backend ECR image digest
+      renderer_image:
+        type: string
+        required: true
+        description: Previous compatible renderer ECR image digest
+      postgres_image:
+        type: string
+        required: true
+        description: Reviewed PostgreSQL image digest (running image is not changed)
+      proxy_image:
+        type: string
+        required: true
+        description: Previous compatible proxy ECR image digest
+      backup_verified:
+        type: boolean
+        required: true
+        description: Recoverable backup and current schema state checked
+      origin_drained:
+        type: boolean
+        required: true
+        description: App origin drained at ALB
+      schema_compatible:
+        type: boolean
+        required: true
+        description: Previous app image is compatible with the CURRENT schema
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production-release
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    if: github.ref == format('refs/heads/{0}', vars.PRODUCTION_BRANCH)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      RELEASE_BUCKET_NAME: ${{ vars.RELEASE_BUCKET_NAME }}
+      APP_INSTANCE_ID: ${{ vars.APP_INSTANCE_ID }}
+      FEEDBACK_INSTANCE_ID: ${{ vars.FEEDBACK_INSTANCE_ID }}
+      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}
+      BACKEND_DEPLOY_ROLE_ARN: ${{ vars.BACKEND_DEPLOY_ROLE_ARN }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      BUNDLE_SHA256: ${{ inputs.bundle_sha256 }}
+      BACKEND_IMAGE: ${{ inputs.backend_image }}
+      RENDERER_IMAGE: ${{ inputs.renderer_image }}
+      POSTGRES_IMAGE: ${{ inputs.postgres_image }}
+      PROXY_IMAGE: ${{ inputs.proxy_image }}
+      BACKUP_VERIFIED: ${{ inputs.backup_verified }}
+      ORIGIN_DRAINED: ${{ inputs.origin_drained }}
+      SCHEMA_COMPATIBLE: ${{ inputs.schema_compatible }}
+    steps:
+      - name: Verify operator's previously checked release
+        shell: bash
+        run: |
+          test -n "$PRODUCTION_BRANCH" && test "$GITHUB_REF" = "refs/heads/$PRODUCTION_BRANCH"
+          test "$BACKUP_VERIFIED" = true && test "$ORIGIN_DRAINED" = true && test "$SCHEMA_COMPATIBLE" = true
+          test -n "$AWS_REGION" && test -n "$AWS_ACCOUNT_ID" && test -n "$BACKEND_DEPLOY_ROLE_ARN"
+          test -n "$RELEASE_BUCKET_NAME" && test -n "$APP_INSTANCE_ID" && test -n "$FEEDBACK_INSTANCE_ID"
+          test "$APP_INSTANCE_ID" != "$FEEDBACK_INSTANCE_ID"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate both digest-pinned host commands before AWS
+        shell: bash
+        run: |
+          python3 deploy/backend-ssm-command.py --mode rollback --role app --region "$AWS_REGION" \
+            --account "$AWS_ACCOUNT_ID" --bucket "$RELEASE_BUCKET_NAME" --commit "$SOURCE_COMMIT" \
+            --bundle-sha256 "$BUNDLE_SHA256" --backend-image "$BACKEND_IMAGE" \
+            --renderer-image "$RENDERER_IMAGE" --postgres-image "$POSTGRES_IMAGE" --proxy-image "$PROXY_IMAGE" > "$RUNNER_TEMP/app-ssm.json"
+          python3 deploy/backend-ssm-command.py --mode rollback --role feedback --region "$AWS_REGION" \
+            --account "$AWS_ACCOUNT_ID" --bucket "$RELEASE_BUCKET_NAME" --commit "$SOURCE_COMMIT" \
+            --bundle-sha256 "$BUNDLE_SHA256" --backend-image "$BACKEND_IMAGE" \
+            > "$RUNNER_TEMP/feedback-ssm.json"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.BACKEND_DEPLOY_ROLE_ARN }}
+          role-session-name: backend-rollback
+      - name: Roll back compatible app image without reversing migrations
+        shell: bash
+        run: |
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
+          command_id="$(aws ssm send-command --document-name AWS-RunShellScript --instance-ids "$APP_INSTANCE_ID" \
+            --parameters "file://$RUNNER_TEMP/app-ssm.json" --query 'Command.CommandId' --output text)"
+          test -n "$command_id" && test "$command_id" != None
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$APP_INSTANCE_ID"
+      - name: Roll back separate feedback worker after app health
+        shell: bash
+        run: |
+          command_id="$(aws ssm send-command --document-name AWS-RunShellScript --instance-ids "$FEEDBACK_INSTANCE_ID" \
+            --parameters "file://$RUNNER_TEMP/feedback-ssm.json" --query 'Command.CommandId' --output text)"
+          test -n "$command_id" && test "$command_id" != None
+          aws ssm wait command-executed --command-id "$command_id" --instance-id "$FEEDBACK_INSTANCE_ID"

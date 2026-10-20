@@ -1,0 +1,19 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID and local checkout attempt ID already obtained through authorized support, not a provider transaction ID. Organization and checkout view permissions and current session MFA are required; every delivered inspection is audited. No broad checkout discovery is available here.</p>
+<p>Retained suspended, closed, old and other-environment records can be inspected. Recorded state is not current paid access, first payment, confirmed cancellation, link delivery or retry authority. This inspector does not contact the provider, repeat checkout, reconcile billing or inspect current subscriptions, link receipts or first-paid records.</p>
+<p>All displayed dates are local server records, not provider occurrence times. The update date is not transition or completion time: closure rejection and partial updates need not advance it. READY alone is not payment; a recorded paid verification date does not establish current paid access. A subscription ID may be filled later without changing that date. SETTLED is not independent cancellation proof. Sending or unknown never proves the provider did nothing, and missing records never mean no payment occurred.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained checkout</button></form>
+{% if inspection %}
+<h2>Recorded checkout attempt {{ inspection.attempt.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Recorded environment</dt><dd>{{ inspection.attempt.environment }}</dd>
+<dt>Recorded offer</dt><dd>{{ inspection.attempt.offer_version }}</dd>
+<dt>Recorded state</dt><dd>{{ inspection.attempt.state }}</dd>
+<dt>Local record creation (UTC)</dt><dd>{{ inspection.attempt.created_at }}</dd>
+<dt>Local recorded update (UTC)</dt><dd>{{ inspection.attempt.updated_at }}</dd>
+<dt>Local provider attempt (stored sent_at, UTC)</dt><dd>{{ inspection.attempt.sent_at|default_if_none:"Not recorded" }}</dd>
+<dt>Local recorded paid verification (UTC)</dt><dd>{{ inspection.attempt.paid_verified_at|default_if_none:"Not recorded" }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Source binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

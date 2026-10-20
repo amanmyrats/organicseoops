@@ -1,0 +1,24 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OnlyVerifiedSesIdentityMayPublish",
+      "Effect": "Allow",
+      "Principal": { "Service": "ses.amazonaws.com" },
+      "Action": "sns:Publish",
+      "Resource": "${SES_FEEDBACK_TOPIC_ARN}",
+      "Condition": {
+        "StringEquals": { "aws:SourceAccount": "${AWS_ACCOUNT_ID}" },
+        "ArnEquals": { "aws:SourceArn": "${SES_IDENTITY_ARN}" }
+      }
+    },
+    {
+      "Sid": "DenyOtherPublishers",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "sns:Publish",
+      "Resource": "${SES_FEEDBACK_TOPIC_ARN}",
+      "Condition": { "ArnNotEquals": { "aws:SourceArn": "${SES_IDENTITY_ARN}" } }
+    }
+  ]
+}

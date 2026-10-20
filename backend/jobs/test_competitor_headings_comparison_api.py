@@ -1,0 +1,76 @@
+from unittest.mock import patch
+
+from django.core.cache import cache
+from django.test import Client, TransactionTestCase, override_settings
+
+from config.test_foundations import TEST_STORAGES
+from . import test_competitor_collection as root_fixtures
+from . import test_competitor_comparison_api as api_fixtures
+from . import test_competitor_headings_comparison as fixtures
+from .competitor_headings_comparison import METHOD
+
+
+@override_settings(STORAGES=TEST_STORAGES, DEBUG=True, SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "competitor-headings-comparison-api"}},
+    ARTIFACT_ALLOWED_CONTENT_TYPES=frozenset({"text/html", "text/plain", "application/json", "application/zip"}))
+class CompetitorHeadingsComparisonApiTests(TransactionTestCase):
+    setUp = fixtures.CompetitorHeadingsComparisonTests.setUp
+    queue = fixtures.CompetitorHeadingsComparisonTests.queue
+    transport = fixtures.CompetitorHeadingsComparisonTests.transport
+    collected = fixtures.CompetitorHeadingsComparisonTests.collected
+
+    def pair(self):
+        cache.clear()
+        before = self.collected("api-page-pair-before")
+        after = self.collected("api-page-pair-after", b"<title>Different</title><h2>Other</h2>")
+        self.base = f"/api/organizations/{self.organization.pk}/projects/{self.project.pk}/competitor-page-headings/comparison/"
+        self.query = f"?previous_job_id={before.pk}&current_job_id={after.pk}"
+        self.client.force_login(self.owner)
+        return before, after
+
+    def test_genuine_exact_private_page_pair_and_shared_independent_maintained_read_budget(self):
+        before, after = self.pair()
+        response = self.client.get(self.base + self.query, secure=True)
+        self.assertEqual(response.status_code, 200, response.content)
+        result = response.json()["comparison"]
+        self.assertEqual((result["method_version"], result["url"], result["previous"]["job_id"], result["current"]["job_id"]),
+            (METHOD, self.data["url"], before.pk, after.pk))
+        self.assertEqual(result["previous"]["evidence"], before.output["evidence"])
+        self.assertEqual(result["current"]["evidence"], after.output["evidence"])
+        self.assertTrue(result["headings_changed"])
+        self.assertNotIn("metadata_changed", result)
+        self.assertEqual(response["Cache-Control"], "private, no-store"); self.assertEqual(response["X-Robots-Tag"], "noindex, nofollow")
+        other = Client(); other.force_login(self.admin)
+        self.assertEqual(other.get(self.base + self.query, secure=True).json()["comparison"], result)
+        self.assertEqual(Client().get(self.base + self.query, secure=True).status_code, 401)
+        cache.clear()
+        with override_settings(ACCOUNT_RATE_LIMITS={"competitor_page_headings_read": "1/h/ip"}):
+            self.assertEqual(self.client.get(self.base + self.query, secure=True).status_code, 200)
+            self.assertEqual(other.get(self.base.removesuffix("comparison/"), secure=True).status_code, 429)
+            for family in ("competitor-roots", "competitor-schema-roots", "competitor-links-roots", "competitor-pages"):
+                path = self.base.split("competitor-page-headings/")[0] + family + "/"
+                self.assertEqual(other.get(path, secure=True).status_code, 200)
+
+    def test_other_uri_original_actor_and_genuine_old_family_cannot_enter_page_pair_or_old_root_consumers(self):
+        before, after = self.pair()
+        for key, changes in (("other-uri", {"data": {**self.data, "url": self.data["url"] + "-other"}}), ("other-actor", {"actor": self.admin})):
+            other = self.collected(key, **changes)
+            self.assertEqual(self.client.get(self.base + f"?previous_job_id={before.pk}&current_job_id={other.pk}", secure=True).status_code, 409)
+        root = root_fixtures.CompetitorCollectionTests.queue(self, "api-actual-root",
+            data={key: value for key, value in self.data.items() if key != "url"})
+        from . import competitor_collection as collection
+        with patch("socket.create_connection", side_effect=AssertionError("No actual egress")):
+            self.assertTrue(collection.execute_competitor_collection(root.pk, fetcher=root_fixtures.CompetitorCollectionTests.fetcher(self)))
+        root.refresh_from_db(); self.assertEqual(root.status, "succeeded")
+        self.assertEqual(self.client.get(self.base + f"?previous_job_id={before.pk}&current_job_id={root.pk}", secure=True).status_code, 403)
+        root_path = self.base.replace("competitor-page-headings/", "competitor-roots/")
+        self.assertEqual(self.client.get(root_path + self.query, secure=True).status_code, 403)
+        self.assertNotIn("comparison", self.client.get(root_path + self.query, secure=True).json())
+        for family in ("competitor-pages", "competitor-schema-roots", "competitor-links-roots"):
+            path = self.base.replace("competitor-page-headings/", family + "/")
+            self.assertEqual(self.client.get(path + self.query, secure=True).status_code, 403)
+
+    test_bodyless_canonical_distinct_query_only_and_current_scoped_source_denials = api_fixtures.CompetitorComparisonApiTests.test_bodyless_canonical_distinct_query_only_and_current_scoped_source_denials
+    test_post_serialization_first_record_source_caller_cancellation_and_expiry_loss_withholds_pair = api_fixtures.CompetitorComparisonApiTests.test_post_serialization_first_record_source_caller_cancellation_and_expiry_loss_withholds_pair
+    test_final_api_metadata_return_fences_original_authority_for_pair_and_root_detail = api_fixtures.CompetitorComparisonApiTests.test_final_api_metadata_return_fences_original_authority_for_pair_and_root_detail
+    test_first_original_cancellation_during_last_post_serialization_second_source_read_withholds_response = api_fixtures.CompetitorComparisonApiTests.test_first_original_cancellation_during_last_post_serialization_second_source_read_withholds_response

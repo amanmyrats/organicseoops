@@ -1,0 +1,159 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "App-host backup and EC2 status alarms; prepare only",
+  "Parameters": {
+    "AppInstanceId": { "Type": "String", "AllowedPattern": "^i-[0-9a-f]{8,17}$" },
+    "FeedbackInstanceId": { "Type": "String", "AllowedPattern": "^i-[0-9a-f]{8,17}$" },
+    "AlarmTopicArn": { "Type": "String", "AllowedPattern": "^arn:aws:sns:[a-z0-9-]+:[0-9]{12}:[A-Za-z0-9_-]+$" }
+  },
+  "Resources": {
+    "BackendLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": { "LogGroupName": "/organicseoops/production/backend", "RetentionInDays": 30 }
+    },
+    "MissedDailyBackup": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "No verified daily PostgreSQL backup; missing data is a failure",
+        "Namespace": "OrganicSEOOps/Backup",
+        "MetricName": "DailySuccess",
+        "Dimensions": [{ "Name": "Environment", "Value": "production" }],
+        "Statistic": "Maximum",
+        "Period": 86400,
+        "EvaluationPeriods": 1,
+        "Threshold": 1,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "breaching",
+        "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "AppHostStatusFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "App EC2 system/instance status failure",
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [{ "Name": "InstanceId", "Value": { "Ref": "AppInstanceId" } }],
+        "Statistic": "Maximum",
+        "Period": 60,
+        "EvaluationPeriods": 2,
+        "Threshold": 1,
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching",
+        "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "FeedbackHostStatusFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Dedicated feedback EC2 status failure",
+        "Namespace": "AWS/EC2", "MetricName": "StatusCheckFailed",
+        "Dimensions": [{ "Name": "InstanceId", "Value": { "Ref": "FeedbackInstanceId" } }],
+        "Statistic": "Maximum", "Period": 60, "EvaluationPeriods": 2,
+        "Threshold": 1, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "AppServiceDown": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "App/Beat/worker/renderer/private-data liveness failed or missing",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "Healthy",
+        "Dimensions": [{ "Name": "HostRole", "Value": "app" }],
+        "Statistic": "Minimum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 1, "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "FeedbackWorkerDown": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Dedicated feedback worker liveness failed or missing",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "Healthy",
+        "Dimensions": [{ "Name": "HostRole", "Value": "feedback" }],
+        "Statistic": "Minimum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 1, "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "AppDataDiskFull": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Retained PostgreSQL EBS >=85% or metric missing",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "DiskUsedPercent",
+        "Dimensions": [{ "Name": "HostRole", "Value": "app" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 85, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "FeedbackRootDiskFull": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Feedback worker root disk >=85% or metric missing",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "DiskUsedPercent",
+        "Dimensions": [{ "Name": "HostRole", "Value": "feedback" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 85, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "AppMemoryHigh": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "App host memory >=85% for 15 minutes",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "MemUsedPercent",
+        "Dimensions": [{ "Name": "HostRole", "Value": "app" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 3,
+        "Threshold": 85, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "FeedbackMemoryHigh": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Feedback host memory >=85% for 15 minutes",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "MemUsedPercent",
+        "Dimensions": [{ "Name": "HostRole", "Value": "feedback" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 3,
+        "Threshold": 85, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "OverdueSearchConsoleSchedule": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "An enabled Search Console sync schedule is over two hours past due; source freshness is not implied",
+        "Namespace": "OrganicSEOOps/Service", "MetricName": "OverdueSearchConsoleSchedules",
+        "Dimensions": [{ "Name": "HostRole", "Value": "app" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 1, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "notBreaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "OverdueCustomerDeletion": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Customer active-store deletion passed the accepted deadline; inspect retained run and source before any retry",
+        "Namespace": "OrganicSEOOps/Jobs", "MetricName": "OverdueCustomerDeletionRuns",
+        "Dimensions": [{ "Name": "Environment", "Value": "production" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 1, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    },
+    "ClosedTenantWithoutDeletionRun": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Owner closure has no deletion record after its 30-day active-store deadline",
+        "Namespace": "OrganicSEOOps/Jobs", "MetricName": "ClosedTenantsMissingDeletionRun",
+        "Dimensions": [{ "Name": "Environment", "Value": "production" }],
+        "Statistic": "Maximum", "Period": 300, "EvaluationPeriods": 2,
+        "Threshold": 1, "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "TreatMissingData": "breaching", "AlarmActions": [{ "Ref": "AlarmTopicArn" }]
+      }
+    }
+  }
+}

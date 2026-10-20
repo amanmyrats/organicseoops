@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Choose one exact current user, address record and delivery ID with a categorical reason. Both user and account-mail view permissions and current session MFA are required. Inspection is audited; no address, purpose, message, token or organization data is shown.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect recorded account-mail transport</button></form>
+{% if inspection %}
+<section aria-labelledby="mail-history-title">
+  <h2 id="mail-history-title">Recorded delivery {{ inspection.delivery.id }} · current user {{ inspection.user_id }} · address record {{ inspection.email_address_id }}</h2>
+  <dl>
+    <dt>Recorded transport state</dt><dd>{{ inspection.delivery.state }}</dd>
+    <dt>Attempt recorded</dt><dd>{{ inspection.delivery.attempted_at }}</dd>
+    <dt>Attempt finish recorded</dt><dd>{% if inspection.delivery.finished_at %}{{ inspection.delivery.finished_at }}{% else %}No recorded finish{% endif %}</dd>
+  </dl>
+  <p>Current record linkage is not proof of the original recipient or message purpose. Transport returned is not inbox delivery or a read receipt. Attempted or unknown may already have sent mail; a suppressed record does not prove current suppression. Verification and reset tokens cannot be replayed here. Inspection never sends mail or grants recovery or resend eligibility. Existing inactive or access-closed target history remains restricted, not erased.</p>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Private OrganicSEOOps PostgreSQL daily logical backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+EnvironmentFile=/etc/organicseoops/backup.env
+WorkingDirectory=/opt/organicseoops/current
+ExecStart=/bin/bash /opt/organicseoops/current/deploy/postgres-backup.sh
+TimeoutStartSec=3600
+NoNewPrivileges=true
+ProtectHome=true

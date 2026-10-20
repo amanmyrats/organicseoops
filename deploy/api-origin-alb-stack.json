@@ -1,0 +1,81 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "HTTPS API origin restricted to CloudFront origin-facing ranges; prepare only",
+  "Parameters": {
+    "VpcId": { "Type": "AWS::EC2::VPC::Id" },
+    "PublicSubnetA": { "Type": "AWS::EC2::Subnet::Id" },
+    "PublicSubnetB": { "Type": "AWS::EC2::Subnet::Id" },
+    "ApiInstanceId": { "Type": "String", "Default": "", "AllowedPattern": "^(i-[0-9a-f]{8,17})?$" },
+    "ApiOriginCertificateArn": { "Type": "String" },
+    "CloudFrontOriginPrefixListId": { "Type": "String" }
+  },
+  "Conditions": {
+    "HasApiInstance": { "Fn::Not": [{ "Fn::Equals": [{ "Ref": "ApiInstanceId" }, ""] }] }
+  },
+  "Resources": {
+    "ApiHostSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Private API host receives HTTP only from its HTTPS ALB",
+        "VpcId": { "Ref": "VpcId" }
+      }
+    },
+    "AlbSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "CloudFront origin-facing TLS only",
+        "VpcId": { "Ref": "VpcId" },
+        "SecurityGroupIngress": [{
+          "IpProtocol": "tcp", "FromPort": 443, "ToPort": 443,
+          "SourcePrefixListId": { "Ref": "CloudFrontOriginPrefixListId" }
+        }],
+        "SecurityGroupEgress": [{
+          "IpProtocol": "tcp", "FromPort": 80, "ToPort": 80,
+          "DestinationSecurityGroupId": { "Ref": "ApiHostSecurityGroup" }
+        }]
+      }
+    },
+    "ApiHostHttpFromAlb": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": { "Ref": "ApiHostSecurityGroup" },
+        "IpProtocol": "tcp", "FromPort": 80, "ToPort": 80,
+        "SourceSecurityGroupId": { "Ref": "AlbSecurityGroup" }
+      }
+    },
+    "ApiAlb": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Scheme": "internet-facing", "Type": "application",
+        "Subnets": [{ "Ref": "PublicSubnetA" }, { "Ref": "PublicSubnetB" }],
+        "SecurityGroups": [{ "Ref": "AlbSecurityGroup" }]
+      }
+    },
+    "ApiTargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "TargetType": "instance", "Protocol": "HTTP", "Port": 80,
+        "VpcId": { "Ref": "VpcId" },
+        "HealthCheckPath": "/api/health/", "HealthCheckProtocol": "HTTP",
+        "Matcher": { "HttpCode": "200" },
+        "Targets": { "Fn::If": [
+          "HasApiInstance", [{ "Id": { "Ref": "ApiInstanceId" }, "Port": 80 }], { "Ref": "AWS::NoValue" }
+        ] }
+      }
+    },
+    "ApiHttpsListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "LoadBalancerArn": { "Ref": "ApiAlb" },
+        "Protocol": "HTTPS", "Port": 443,
+        "SslPolicy": "ELBSecurityPolicy-TLS13-1-2-2021-06",
+        "Certificates": [{ "CertificateArn": { "Ref": "ApiOriginCertificateArn" } }],
+        "DefaultActions": [{ "Type": "forward", "TargetGroupArn": { "Ref": "ApiTargetGroup" } }]
+      }
+    }
+  },
+  "Outputs": {
+    "ApiAlbDomainName": { "Value": { "Fn::GetAtt": ["ApiAlb", "DNSName"] } },
+    "ApiHostSecurityGroupId": { "Value": { "Ref": "ApiHostSecurityGroup" } }
+  }
+}

@@ -1,0 +1,335 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Private frontend S3 origin and exact same-origin browser API paths; prepare only",
+  "Parameters": {
+    "FrontendBucketName": {
+      "Type": "String"
+    },
+    "ApiOriginDomainName": {
+      "Type": "String"
+    },
+    "FrontendAlias": {
+      "Type": "String",
+      "AllowedPattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$"
+    },
+    "AcmCertificateArn": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "FrontendBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": {
+          "Ref": "FrontendBucketName"
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      }
+    },
+    "FrontendOac": {
+      "Type": "AWS::CloudFront::OriginAccessControl",
+      "Properties": {
+        "OriginAccessControlConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-frontend-s3"
+          },
+          "OriginAccessControlOriginType": "s3",
+          "SigningBehavior": "always",
+          "SigningProtocol": "sigv4"
+        }
+      }
+    },
+    "ApiNoStore": {
+      "Type": "AWS::CloudFront::ResponseHeadersPolicy",
+      "Properties": {
+        "ResponseHeadersPolicyConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-api-no-store"
+          },
+          "CustomHeadersConfig": {
+            "Items": [
+              {
+                "Header": "Cache-Control",
+                "Value": "private, no-store",
+                "Override": true
+              }
+            ]
+          }
+        }
+      }
+    },
+    "StaticRouteFunction": {
+      "Type": "AWS::CloudFront::Function",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-static-routes"
+        },
+        "AutoPublish": true,
+        "FunctionConfig": {
+          "Comment": "Exact prerender routes, private CSR paths and real unknown-public 404",
+          "Runtime": "cloudfront-js-2.0"
+        },
+        "FunctionCode": {
+          "Fn::Sub": "function handler(event) {\n  var request = event.request;\n  var uri = request.uri;\n  if (request.headers.host.value.toLowerCase() !== '${FrontendAlias}') {\n    var query = [];\n    var parameters = request.querystring || {};\n    Object.keys(parameters).forEach(function(name) {\n      var parameter = parameters[name];\n      var values = parameter.multiValue || [parameter];\n      values.forEach(function(item) { query.push(encodeURIComponent(name) + '=' + encodeURIComponent(item.value)); });\n    });\n    return { statusCode: 308, headers: { location: { value: 'https://${FrontendAlias}' + uri + (query.length ? '?' + query.join('&') : '') }, 'cache-control': { value: 'private, no-store' } } };\n  }\n  if (uri === '/') { request.uri = '/index.html'; return request; }\n  if (uri === '/preview' || uri === '/preview/') { request.uri = '/preview/index.html'; return request; }\n  if (uri === '/preview/tr' || uri === '/preview/tr/') { request.uri = '/preview/tr/index.html'; return request; }\n  if (uri === '/preview/tr/home' || uri === '/preview/tr/home/') { request.uri = '/preview/tr/home/index.html'; return request; }\n  if (uri === '/preview/tr/sample-report' || uri === '/preview/tr/sample-report/') { request.uri = '/preview/tr/sample-report/index.html'; return request; }\n  if (uri === '/sample-report' || uri === '/sample-report/') { request.uri = '/sample-report/index.html'; return request; }\n  if (uri === '/preview/tr/404' || uri === '/preview/tr/404/') { request.uri = '/preview/tr/404/index.html'; return request; }\n  if (uri === '/preview/help' || uri === '/preview/help/') { request.uri = '/preview/help/index.html'; return request; }\n  if (uri === '/preview/tr/help' || uri === '/preview/tr/help/') { request.uri = '/preview/tr/help/index.html'; return request; }\n  if (uri === '/preview/data-sources' || uri === '/preview/data-sources/') { request.uri = '/preview/data-sources/index.html'; return request; }\n  if (uri === '/preview/tr/data-sources' || uri === '/preview/tr/data-sources/') { request.uri = '/preview/tr/data-sources/index.html'; return request; }\n  if (uri === '/preview/technical-seo-audits' || uri === '/preview/technical-seo-audits/') { request.uri = '/preview/technical-seo-audits/index.html'; return request; }\n  if (uri === '/preview/tr/technical-seo-audits' || uri === '/preview/tr/technical-seo-audits/') { request.uri = '/preview/tr/technical-seo-audits/index.html'; return request; }\n  if (uri === '/preview/seo-agencies' || uri === '/preview/seo-agencies/') { request.uri = '/preview/seo-agencies/index.html'; return request; }\n  if (uri === '/preview/tr/seo-agencies' || uri === '/preview/tr/seo-agencies/') { request.uri = '/preview/tr/seo-agencies/index.html'; return request; }\n  if (uri === '/preview/airport-transfer-seo' || uri === '/preview/airport-transfer-seo/') { request.uri = '/preview/airport-transfer-seo/index.html'; return request; }\n  if (uri === '/preview/tr/airport-transfer-seo' || uri === '/preview/tr/airport-transfer-seo/') { request.uri = '/preview/tr/airport-transfer-seo/index.html'; return request; }\n  if (uri === '/preview/seo-opportunities' || uri === '/preview/seo-opportunities/') { request.uri = '/preview/seo-opportunities/index.html'; return request; }\n  if (uri === '/preview/tr/seo-opportunities' || uri === '/preview/tr/seo-opportunities/') { request.uri = '/preview/tr/seo-opportunities/index.html'; return request; }\n  if (uri === '/preview/content-and-keywords' || uri === '/preview/content-and-keywords/') { request.uri = '/preview/content-and-keywords/index.html'; return request; }\n  if (uri === '/preview/tr/content-and-keywords' || uri === '/preview/tr/content-and-keywords/') { request.uri = '/preview/tr/content-and-keywords/index.html'; return request; }\n  if (uri === '/preview/pricing' || uri === '/preview/pricing/') { request.uri = '/preview/pricing/index.html'; return request; }\n  if (uri === '/preview/tr/pricing' || uri === '/preview/tr/pricing/') { request.uri = '/preview/tr/pricing/index.html'; return request; }\n  if (uri === '/preview/contact' || uri === '/preview/contact/') { request.uri = '/preview/contact/index.html'; return request; }\n  if (uri === '/preview/tr/contact' || uri === '/preview/tr/contact/') { request.uri = '/preview/tr/contact/index.html'; return request; }\n  if (uri === '/preview/cancellation' || uri === '/preview/cancellation/') { request.uri = '/preview/cancellation/index.html'; return request; }\n  if (uri === '/preview/tr/cancellation' || uri === '/preview/tr/cancellation/') { request.uri = '/preview/tr/cancellation/index.html'; return request; }\n  if (uri === '/preview/data-handling' || uri === '/preview/data-handling/') { request.uri = '/preview/data-handling/index.html'; return request; }\n  if (uri === '/preview/tr/data-handling' || uri === '/preview/tr/data-handling/') { request.uri = '/preview/tr/data-handling/index.html'; return request; }\n  if (uri === '/preview/accessibility' || uri === '/preview/accessibility/') { request.uri = '/preview/accessibility/index.html'; return request; }\n  if (uri === '/preview/tr/accessibility' || uri === '/preview/tr/accessibility/') { request.uri = '/preview/tr/accessibility/index.html'; return request; }\n  if (uri === '/preview/privacy' || uri === '/preview/privacy/') { request.uri = '/preview/privacy/index.html'; return request; }\n  if (uri === '/preview/tr/privacy' || uri === '/preview/tr/privacy/') { request.uri = '/preview/tr/privacy/index.html'; return request; }\n  if (uri === '/preview/terms' || uri === '/preview/terms/') { request.uri = '/preview/terms/index.html'; return request; }\n  if (uri === '/preview/tr/terms' || uri === '/preview/tr/terms/') { request.uri = '/preview/tr/terms/index.html'; return request; }\n  if (uri === '/404' || uri === '/404/') { request.uri = '/404/index.html'; return request; }\n  if (/^\\/(account|app)(\\/|$)/.test(uri) && !/\\.[^/]+$/.test(uri)) { request.uri = '/index.csr.html'; return request; }\n  if (/\\.[a-zA-Z0-9]{1,10}$/.test(uri)) { return request; }\n  return { statusCode: 404, statusDescription: 'Not Found', headers: { 'content-type': { value: 'text/html; charset=utf-8' }, 'cache-control': { value: 'private, no-store' }, 'x-robots-tag': { value: 'noindex' } }, body: '<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Page not found — OrganicSEOOps</title><main><h1>Page not found</h1><p>This page does not exist.</p><a href=\"/\">Home</a></main></html>' };\n}"
+        }
+      }
+    },
+    "FrontendDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "Enabled": true,
+          "Aliases": [
+            {
+              "Ref": "FrontendAlias"
+            }
+          ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Ref": "AcmCertificateArn"
+            },
+            "SslSupportMethod": "sni-only",
+            "MinimumProtocolVersion": "TLSv1.2_2021"
+          },
+          "DefaultRootObject": "index.html",
+          "Origins": [
+            {
+              "Id": "private-static",
+              "DomainName": {
+                "Fn::GetAtt": [
+                  "FrontendBucket",
+                  "RegionalDomainName"
+                ]
+              },
+              "OriginAccessControlId": {
+                "Ref": "FrontendOac"
+              },
+              "S3OriginConfig": {
+                "OriginAccessIdentity": ""
+              }
+            },
+            {
+              "Id": "django-https",
+              "DomainName": {
+                "Ref": "ApiOriginDomainName"
+              },
+              "CustomOriginConfig": {
+                "HTTPPort": 80,
+                "HTTPSPort": 443,
+                "OriginProtocolPolicy": "https-only",
+                "OriginSSLProtocols": [
+                  "TLSv1.2"
+                ]
+              }
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "private-static",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": [
+              "GET",
+              "HEAD",
+              "OPTIONS"
+            ],
+            "CachedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+            "FunctionAssociations": [
+              {
+                "EventType": "viewer-request",
+                "FunctionARN": {
+                  "Fn::GetAtt": [
+                    "StaticRouteFunction",
+                    "FunctionARN"
+                  ]
+                }
+              }
+            ]
+          },
+          "CacheBehaviors": [
+            {
+              "PathPattern": "/api/*",
+              "TargetOriginId": "django-https",
+              "ViewerProtocolPolicy": "https-only",
+              "AllowedMethods": [
+                "GET",
+                "HEAD",
+                "OPTIONS",
+                "PUT",
+                "PATCH",
+                "POST",
+                "DELETE"
+              ],
+              "CachedMethods": [
+                "GET",
+                "HEAD"
+              ],
+              "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+              "OriginRequestPolicyId": "33f36d7e-f396-46d9-90e0-52428a34d9dc",
+              "ResponseHeadersPolicyId": {
+                "Ref": "ApiNoStore"
+              }
+            },
+            {
+              "PathPattern": "/_allauth/*",
+              "TargetOriginId": "django-https",
+              "ViewerProtocolPolicy": "https-only",
+              "AllowedMethods": [
+                "GET",
+                "HEAD",
+                "OPTIONS",
+                "PUT",
+                "PATCH",
+                "POST",
+                "DELETE"
+              ],
+              "CachedMethods": [
+                "GET",
+                "HEAD"
+              ],
+              "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+              "OriginRequestPolicyId": "33f36d7e-f396-46d9-90e0-52428a34d9dc",
+              "ResponseHeadersPolicyId": {
+                "Ref": "ApiNoStore"
+              }
+            },
+            {
+              "PathPattern": "/admin/*",
+              "TargetOriginId": "django-https",
+              "ViewerProtocolPolicy": "https-only",
+              "AllowedMethods": [
+                "GET",
+                "HEAD",
+                "OPTIONS",
+                "PUT",
+                "PATCH",
+                "POST",
+                "DELETE"
+              ],
+              "CachedMethods": [
+                "GET",
+                "HEAD"
+              ],
+              "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+              "OriginRequestPolicyId": "33f36d7e-f396-46d9-90e0-52428a34d9dc",
+              "ResponseHeadersPolicyId": {
+                "Ref": "ApiNoStore"
+              }
+            },
+            {
+              "PathPattern": "/static/*",
+              "TargetOriginId": "django-https",
+              "ViewerProtocolPolicy": "https-only",
+              "AllowedMethods": [
+                "GET",
+                "HEAD",
+                "OPTIONS"
+              ],
+              "CachedMethods": [
+                "GET",
+                "HEAD"
+              ],
+              "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+              "OriginRequestPolicyId": "33f36d7e-f396-46d9-90e0-52428a34d9dc",
+              "ResponseHeadersPolicyId": {
+                "Ref": "ApiNoStore"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "FrontendBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "FrontendBucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "CloudFrontOacObjectsOnly",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:GetObject",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${FrontendBucketName}/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+                  }
+                }
+              }
+            },
+            {
+              "Sid": "CloudFrontOacMissingObject404",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:ListBucket",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${FrontendBucketName}"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "DistributionId": {
+      "Value": {
+        "Ref": "FrontendDistribution"
+      }
+    },
+    "DistributionDomain": {
+      "Value": {
+        "Fn::GetAtt": [
+          "FrontendDistribution",
+          "DomainName"
+        ]
+      }
+    }
+  }
+}

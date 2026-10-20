@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "routes": {
+    "": {
+      "state": "draft",
+      "history": []
+    },
+    "preview": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr": {
+      "state": "draft",
+      "history": []
+    },
+    "sample-report": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/sample-report": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/home": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/404": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/help": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/help": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/data-sources": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/data-sources": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/technical-seo-audits": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/technical-seo-audits": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/seo-agencies": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/seo-agencies": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/airport-transfer-seo": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/airport-transfer-seo": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/seo-opportunities": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/seo-opportunities": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/content-and-keywords": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/content-and-keywords": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/pricing": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/tr/pricing": {
+      "state": "draft",
+      "history": []
+    },
+    "preview/contact": { "state": "draft", "history": [] },
+    "preview/tr/contact": { "state": "draft", "history": [] },
+    "preview/accessibility": { "state": "draft", "history": [] },
+    "preview/tr/accessibility": { "state": "draft", "history": [] },
+    "preview/data-handling": { "state": "draft", "history": [] },
+    "preview/tr/data-handling": { "state": "draft", "history": [] },
+    "preview/cancellation": { "state": "draft", "history": [] },
+    "preview/tr/cancellation": { "state": "draft", "history": [] },
+    "preview/privacy": { "state": "draft", "history": [] },
+    "preview/tr/privacy": { "state": "draft", "history": [] },
+    "preview/terms": { "state": "draft", "history": [] },
+    "preview/tr/terms": { "state": "draft", "history": [] }
+  }
+}

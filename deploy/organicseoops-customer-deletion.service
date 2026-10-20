@@ -1,0 +1,14 @@
+[Unit]
+Description=Bounded OrganicSEOOps customer active-store retention pass
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+WorkingDirectory=/opt/organicseoops/current
+ExecStart=/bin/bash /opt/organicseoops/current/deploy/customer-deletion.sh
+TimeoutStartSec=3600
+NoNewPrivileges=true
+ProtectHome=true

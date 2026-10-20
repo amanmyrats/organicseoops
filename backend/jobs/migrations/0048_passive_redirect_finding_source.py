@@ -1,0 +1,48 @@
+# Generated from Django 6.1.1 dry-run output on 2026-10-05.
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ('integrations', '0017_searchanalyticsquerypagesnapshot'),
+        ('jobs', '0047_passive_tls_finding_source'),
+        ('tenancy', '0080_staff_first_active_inspection_audit'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.RemoveConstraint(model_name='finding', name='jobs_finding_one_source'),
+        migrations.AddField(
+            model_name='finding', name='source_passive_redirect',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT,
+                related_name='passive_redirect_findings', to='jobs.jobrun'),
+        ),
+        migrations.AddConstraint(
+            model_name='finding',
+            constraint=models.CheckConstraint(condition=(models.Q(source_passive_redirect__isnull=True) & ((models.Q(source_passive_tls__isnull=True) & ((models.Q(source_passive_resource__isnull=True) & ((models.Q(source_passive_header__isnull=True) & (
+                models.Q(source_metric__isnull=False, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                  source_indexation__isnull=True, source_performance__isnull=True)
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=False, source_diagnostics__isnull=True,
+                    source_indexation__isnull=True, source_performance__isnull=True)
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=False,
+                    source_indexation__isnull=True, source_performance__isnull=True)
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                    source_indexation__isnull=False, source_performance__isnull=True)
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                    source_indexation__isnull=True, source_performance__isnull=False)
+            )) | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                   source_indexation__isnull=True, source_performance__isnull=True, source_passive_header__isnull=False)))
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                    source_indexation__isnull=True, source_performance__isnull=True, source_passive_header__isnull=True,
+                    source_passive_resource__isnull=False)))
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                    source_indexation__isnull=True, source_performance__isnull=True, source_passive_header__isnull=True,
+                    source_passive_resource__isnull=True, source_passive_tls__isnull=False)))
+                | models.Q(source_metric__isnull=True, source_api_page__isnull=True, source_diagnostics__isnull=True,
+                    source_indexation__isnull=True, source_performance__isnull=True, source_passive_header__isnull=True,
+                    source_passive_resource__isnull=True, source_passive_tls__isnull=True, source_passive_redirect__isnull=False),
+                name='jobs_finding_one_source'),
+        ),
+    ]

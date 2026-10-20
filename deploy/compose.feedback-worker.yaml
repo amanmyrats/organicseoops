@@ -1,0 +1,21 @@
+services:
+  # Use only on a separate EC2 host with its own instance profile and private VPC endpoints.
+  # Start worker-default with --no-deps; never start API/Beat/other workers on that host.
+  worker-default:
+    environment:
+      FEEDBACK_WORKER_HOST: "1"
+      DJANGO_DEBUG: "0"
+      POSTGRES_HOST: ${PRIVATE_POSTGRES_HOST:?Set private DB endpoint on worker host}
+      POSTGRES_SSLMODE: verify-full
+      POSTGRES_SSLROOTCERT: /run/organicseoops/postgres-ca.pem
+      CELERY_BROKER_URL: ${PRIVATE_REDIS_BROKER_URL:?Set private Redis broker on worker host}
+      DJANGO_CACHE_URL: ${PRIVATE_REDIS_CACHE_URL:?Set private Redis cache on worker host}
+      REDIS_TLS_CA_FILE: /run/organicseoops/redis-ca.pem
+      ARTIFACT_STORAGE_BACKEND: s3
+      ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:?Set private artifact bucket on worker host}
+      SES_FEEDBACK_QUEUE_URL: ${SES_FEEDBACK_QUEUE_URL:?Set exact SES feedback queue URL}
+      SES_FEEDBACK_TOPIC_ARN: ${SES_FEEDBACK_TOPIC_ARN:?Set exact SES feedback topic ARN}
+    volumes:
+      - ${PRIVATE_POSTGRES_CA_FILE:?Set private PostgreSQL CA path}:/run/organicseoops/postgres-ca.pem:ro
+      - ${PRIVATE_REDIS_CA_FILE:?Set private Redis CA path}:/run/organicseoops/redis-ca.pem:ro
+    networks: [outbound]

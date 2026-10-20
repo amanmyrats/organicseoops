@@ -1,0 +1,32 @@
+[Unit]
+Description=OrganicSEOOps dedicated rootless repository controller container
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Dedicated non-root host account UID10001. Its rootless daemon must already be running.
+User=organicseoops-repository
+Group=organicseoops-repository
+WorkingDirectory=/opt/organicseoops
+Environment=DOCKER_HOST=unix:///run/user/10001/docker.sock
+ExecStart=/usr/bin/docker compose --project-name organicseoops-repository --env-file /opt/organicseoops/backend/.env.prod --file /opt/organicseoops/deploy/compose.repository-controller.yaml up --no-build --pull never --no-color --abort-on-container-exit
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=310
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

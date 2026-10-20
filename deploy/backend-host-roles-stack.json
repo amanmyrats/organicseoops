@@ -1,0 +1,148 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Separate EC2 instance profiles for app and SES-feedback worker; prepare only",
+  "Parameters": {
+    "FeedbackQueueArn": { "Type": "String" },
+    "PrivateArtifactBucketName": { "Type": "String" },
+    "PrivateReleaseBucketName": { "Type": "String" },
+    "PrivateBackupBucketName": { "Type": "String" },
+    "ArtifactPrefix": { "Type": "String", "Default": "artifacts" },
+    "BackendRepositoryArn": { "Type": "String" },
+    "RendererRepositoryArn": { "Type": "String" },
+    "PostgresRepositoryArn": { "Type": "String" },
+    "ProxyRepositoryArn": { "Type": "String" }
+  },
+  "Resources": {
+    "AppHostRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{ "Effect": "Allow", "Principal": { "Service": "ec2.amazonaws.com" },
+                         "Action": "sts:AssumeRole" }]
+        },
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"],
+        "Policies": [
+          {
+            "PolicyName": "deny-ses-feedback-on-app-host",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Deny",
+                "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+                "Resource": { "Ref": "FeedbackQueueArn" }
+              }]
+            }
+          },
+          {
+            "PolicyName": "app-private-artifacts-and-image",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                { "Effect": "Allow", "Action": "s3:ListBucket",
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateArtifactBucketName}" },
+                  "Condition": { "StringLike": { "s3:prefix": [
+                    { "Ref": "ArtifactPrefix" }, { "Fn::Sub": "${ArtifactPrefix}/*" }
+                  ] } }
+                },
+                { "Effect": "Allow", "Action": "s3:ListBucketVersions",
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateArtifactBucketName}" },
+                  "Condition": { "StringLike": { "s3:prefix": [
+                    { "Ref": "ArtifactPrefix" }, { "Fn::Sub": "${ArtifactPrefix}/*" }
+                  ] } }
+                },
+                { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject",
+                                                   "s3:DeleteObjectVersion", "s3:AbortMultipartUpload"],
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateArtifactBucketName}/${ArtifactPrefix}/*" }
+                },
+                { "Effect": "Allow", "Action": "s3:GetObject",
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateReleaseBucketName}/releases/*" }
+                },
+                { "Effect": "Allow", "Action": ["s3:PutObject", "s3:GetObject"],
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateBackupBucketName}/backups/*" }
+                },
+                { "Effect": "Allow", "Action": "cloudwatch:PutMetricData", "Resource": "*",
+                  "Condition": { "StringEquals": { "cloudwatch:namespace": ["OrganicSEOOps/Backup", "OrganicSEOOps/Service", "OrganicSEOOps/Host", "OrganicSEOOps/Jobs"] } }
+                },
+                { "Effect": "Allow", "Action": ["logs:CreateLogStream", "logs:DescribeLogStreams", "logs:PutLogEvents"],
+                  "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/organicseoops/production/backend:*" }
+                },
+                { "Effect": "Allow", "Action": "ecr:GetAuthorizationToken", "Resource": "*" },
+                { "Effect": "Allow",
+                  "Action": ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"],
+                  "Resource": [{ "Ref": "BackendRepositoryArn" }, { "Ref": "RendererRepositoryArn" }, { "Ref": "PostgresRepositoryArn" }, { "Ref": "ProxyRepositoryArn" }] }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "FeedbackWorkerRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{ "Effect": "Allow", "Principal": { "Service": "ec2.amazonaws.com" },
+                         "Action": "sts:AssumeRole" }]
+        },
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"],
+        "Policies": [
+          {
+            "PolicyName": "exact-feedback-queue-only",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+                "Resource": { "Ref": "FeedbackQueueArn" }
+              }]
+            }
+          },
+          {
+            "PolicyName": "worker-private-artifacts-and-image",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                { "Effect": "Allow", "Action": "s3:ListBucket",
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateArtifactBucketName}" },
+                  "Condition": { "StringLike": { "s3:prefix": [
+                    { "Ref": "ArtifactPrefix" }, { "Fn::Sub": "${ArtifactPrefix}/*" }
+                  ] } }
+                },
+                { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject",
+                                                   "s3:AbortMultipartUpload"],
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateArtifactBucketName}/${ArtifactPrefix}/*" }
+                },
+                { "Effect": "Allow", "Action": "s3:GetObject",
+                  "Resource": { "Fn::Sub": "arn:aws:s3:::${PrivateReleaseBucketName}/releases/*" }
+                },
+                { "Effect": "Allow", "Action": "cloudwatch:PutMetricData", "Resource": "*",
+                  "Condition": { "StringEquals": { "cloudwatch:namespace": ["OrganicSEOOps/Service", "OrganicSEOOps/Host"] } }
+                },
+                { "Effect": "Allow", "Action": ["logs:CreateLogStream", "logs:DescribeLogStreams", "logs:PutLogEvents"],
+                  "Resource": { "Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/organicseoops/production/backend:*" }
+                },
+                { "Effect": "Allow", "Action": "ecr:GetAuthorizationToken", "Resource": "*" },
+                { "Effect": "Allow",
+                  "Action": ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"],
+                  "Resource": { "Ref": "BackendRepositoryArn" } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "AppHostProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": { "Roles": [{ "Ref": "AppHostRole" }] }
+    },
+    "FeedbackWorkerProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": { "Roles": [{ "Ref": "FeedbackWorkerRole" }] }
+    }
+  },
+  "Outputs": {
+    "AppHostProfileName": { "Value": { "Ref": "AppHostProfile" } },
+    "FeedbackWorkerProfileName": { "Value": { "Ref": "FeedbackWorkerProfile" } }
+  }
+}

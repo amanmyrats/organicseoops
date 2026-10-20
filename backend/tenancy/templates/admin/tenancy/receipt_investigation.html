@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact receipt ID obtained through authorized support. Separate receipt view permission and current session MFA are required. Each inspection is audited.</p>
+<p>This GLOBAL record is not organization ownership, current paid truth or retry authority. Succeeded may be a no-op. Attempts are the current resettable counter, not lifetime attempts. Null dates never prove no earlier work. These local record dates are not provider occurrence times; a future retry deadline is not current retry eligibility.</p>
+<p>Inspection never contacts Paddle, requeues or changes billing. Separately permitted reviewed retry remains independent. No event IDs, entity IDs, customer identities, payloads or raw digests are shown.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}
+  <button type="submit" name="action" value="inspect">Inspect exact retained receipt</button>
+</form>
+{% if inspection %}
+<h2>Recorded receipt {{ inspection.receipt.id }}</h2>
+<dl>
+<dt>Recorded environment</dt><dd>{{ inspection.receipt.environment }}</dd>
+<dt>Recorded state</dt><dd>{{ inspection.receipt.state }}</dd>
+<dt>Current resettable attempt count</dt><dd>{{ inspection.receipt.attempts }}</dd>
+<dt>Recorded error category</dt><dd>{{ inspection.receipt.error_category|default_if_none:"None recorded" }}</dd>
+<dt>Received locally (UTC)</dt><dd>{{ inspection.receipt.received_at }}</dd>
+<dt>Current claim recorded (UTC)</dt><dd>{{ inspection.receipt.claimed_at|default_if_none:"Not recorded" }}</dd>
+<dt>Recorded retry deadline (UTC)</dt><dd>{{ inspection.receipt.retry_after|default_if_none:"Not recorded" }}</dd>
+<dt>Processed locally (UTC)</dt><dd>{{ inspection.receipt.processed_at|default_if_none:"Not recorded" }}</dd>
+</dl>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Use an exact organization ID and local first active observation ID obtained through authorized support. Organization and first active observation view permissions and current session MFA are required; every delivered inspection is audited. No broad observation discovery is available here.</p>
+<p>This retained record describes the first prospectively tracked active paid server observation. It is not current paid access, provider activation time, lifetime conversion coverage or capture, retry or correction authority. Missing or corrupt history does not prove no payment or activation. This inspector does not contact the provider or reconcile billing.</p>
+<p>Retained suspended, closed, old and other-environment history can be inspected. Later renewal, recovery, SETTLED recheckout, seller rotation or original actor role loss do not rewrite the capture. Server observation and original provider event occurrence are separate dates. Original capture binding and retained provenance binding are separate digests.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit" name="action" value="inspect">Inspect exact retained first active observation</button></form>
+{% if inspection %}
+<h2>Recorded first active observation {{ inspection.observation.id }} in organization {{ inspection.organization_id }}</h2>
+<dl><dt>Local checkout attempt ID</dt><dd>{{ inspection.observation.attempt_id }}</dd>
+<dt>First active server observation (UTC)</dt><dd>{{ inspection.observation.observed_at }}</dd>
+<dt>Original provider event occurrence (UTC; not activation time)</dt><dd>{{ inspection.observation.provider_occurred_at }}</dd>
+<dt>Recorded environment</dt><dd>{{ inspection.observation.environment }}</dd>
+<dt>Recorded offer</dt><dd>{{ inspection.observation.offer_version }}</dd>
+<dt>Recorded provider currency</dt><dd>{{ inspection.observation.currency_code }}</dd>
+<dt>Original capture source binding</dt><dd>{{ inspection.observation.original_source_digest }}</dd></dl>
+<p>Observation method: {{ inspection.method_version }}. Retained provenance binding: {{ inspection.source_digest }}.</p>
+{% endif %}
+{% endblock %}

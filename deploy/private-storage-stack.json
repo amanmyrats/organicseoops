@@ -1,0 +1,88 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Separate private artifact, backup and image-release bundle buckets; prepare only",
+  "Parameters": {
+    "ArtifactBucketName": { "Type": "String" },
+    "BackupBucketName": { "Type": "String" },
+    "ReleaseBucketName": { "Type": "String" }
+  },
+  "Resources": {
+    "ArtifactBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": { "Ref": "ArtifactBucketName" },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": { "ServerSideEncryptionConfiguration": [
+          { "ServerSideEncryptionByDefault": { "SSEAlgorithm": "AES256" } }
+        ] },
+        "OwnershipControls": { "Rules": [{ "ObjectOwnership": "BucketOwnerEnforced" }] },
+        "VersioningConfiguration": { "Status": "Enabled" },
+        "LifecycleConfiguration": { "Rules": [{
+          "Id": "ExpireNoncurrentCustomerArtifactVersions",
+          "Status": "Enabled",
+          "NoncurrentVersionExpiration": { "NoncurrentDays": 1 },
+          "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+        }] }
+      }
+    },
+    "ReleaseBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": { "Ref": "ReleaseBucketName" },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": { "ServerSideEncryptionConfiguration": [
+          { "ServerSideEncryptionByDefault": { "SSEAlgorithm": "AES256" } }
+        ] },
+        "OwnershipControls": { "Rules": [{ "ObjectOwnership": "BucketOwnerEnforced" }] },
+        "VersioningConfiguration": { "Status": "Enabled" }
+      }
+    },
+    "BackupBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
+      "Properties": {
+        "BucketName": { "Ref": "BackupBucketName" },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": { "ServerSideEncryptionConfiguration": [
+          { "ServerSideEncryptionByDefault": { "SSEAlgorithm": "AES256" } }
+        ] },
+        "OwnershipControls": { "Rules": [{ "ObjectOwnership": "BucketOwnerEnforced" }] },
+        "VersioningConfiguration": { "Status": "Enabled" },
+        "LifecycleConfiguration": {
+          "Rules": [{
+            "Id": "ExpireBackupAndOlderVersions",
+            "Status": "Enabled",
+            "ExpirationInDays": 30,
+            "NoncurrentVersionExpiration": { "NoncurrentDays": 1 },
+            "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+          }]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ArtifactBucketName": { "Value": { "Ref": "ArtifactBucket" } },
+    "BackupBucketName": { "Value": { "Ref": "BackupBucket" } },
+    "ReleaseBucketName": { "Value": { "Ref": "ReleaseBucket" } }
+  }
+}

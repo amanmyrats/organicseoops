@@ -1,0 +1,13 @@
+[Unit]
+Description=OrganicSEOOps %i-host service liveness metric
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/organicseoops/monitoring.env
+ExecStart=/bin/bash /opt/organicseoops/current/deploy/host-service-check.sh %i
+TimeoutStartSec=90
+NoNewPrivileges=true
+ProtectHome=true

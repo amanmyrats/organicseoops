@@ -1,0 +1,51 @@
+# Standalone dedicated host; never merge this into the application/feedback Compose stack.
+services:
+  repository-controller:
+    image: ${REPOSITORY_CONTROLLER_IMAGE:?Set preloaded reviewed backend image digest}
+    pull_policy: never
+    init: true
+    # UID0 maps to the non-root rootless daemon owner, allowing its owned socket.
+    # Disposable analysis containers use10001 and receive neither socket nor secrets.
+    user: "0:0"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=67108864
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    stop_grace_period: 310s
+    environment:
+      DJANGO_ENV: production
+      DJANGO_DEBUG: "0"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set private controller Django key}
+      MFA_ENCRYPTION_KEYS: ${MFA_ENCRYPTION_KEYS:?Set private settings encryption key}
+      PROVIDER_ENCRYPTION_KEYS: ${PROVIDER_ENCRYPTION_KEYS:?Set existing repository credential encryption keys}
+      EMAIL_DELIVERY_ENABLED: "0"
+      EMAIL_BACKEND: django.core.mail.backends.dummy.EmailBackend
+      PRODUCTION_APP_HOST: "0"
+      FEEDBACK_WORKER_HOST: "0"
+      REPOSITORY_CONTROLLER_HOST: "1"
+      REPOSITORY_ANALYSIS_ENABLED: ${REPOSITORY_ANALYSIS_ENABLED:-0}
+      REPOSITORY_ADVISORIES_ENABLED: ${REPOSITORY_ADVISORIES_ENABLED:-0}
+      REPOSITORY_ADVISORY_REVIEW_REFERENCE: ${REPOSITORY_ADVISORY_REVIEW_REFERENCE:-}
+      REPOSITORY_CONTROLLER_ID: ${REPOSITORY_CONTROLLER_ID:?Set immutable dedicated controller ID}
+      REPOSITORY_RUNNER_IMAGE: ${REPOSITORY_RUNNER_IMAGE:?Set preloaded runner image digest}
+      REPOSITORY_ISOLATION_REVIEW_REFERENCE: ${REPOSITORY_ISOLATION_REVIEW_REFERENCE:-}
+      REPOSITORY_DOCKER_SOCKET: /run/repository/docker.sock
+      POSTGRES_DB: ${POSTGRES_DB:?Set application database}
+      POSTGRES_USER: ${POSTGRES_USER:?Set private controller database identity}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set private database password}
+      POSTGRES_HOST: ${PRIVATE_DB_BIND_IP:?Set owned private PostgreSQL address}
+      POSTGRES_PORT: "15432"
+      POSTGRES_SSLMODE: verify-full
+      POSTGRES_SSLROOTCERT: /run/repository/postgres-ca.pem
+      CELERY_BROKER_URL: ${PRIVATE_REPOSITORY_BROKER_URL:?Set private authenticated rediss broker URL}
+      DJANGO_CACHE_URL: ${PRIVATE_REPOSITORY_CACHE_URL:?Set private authenticated rediss cache URL}
+      REDIS_TLS_CA_FILE: /run/repository/redis-ca.pem
+    volumes:
+      - ${REPOSITORY_HOST_DOCKER_SOCKET:-/run/user/10001/docker.sock}:/run/repository/docker.sock
+      - ${PRIVATE_POSTGRES_CA_FILE:?Set private PostgreSQL CA}:/run/repository/postgres-ca.pem:ro
+      - ${PRIVATE_REDIS_CA_FILE:?Set private Redis CA}:/run/repository/redis-ca.pem:ro
+    command: [celery, -A, config, worker, "--loglevel=INFO", "--hostname=repository@%h", "--queues=repository", "--concurrency=1", "--max-tasks-per-child=1"]

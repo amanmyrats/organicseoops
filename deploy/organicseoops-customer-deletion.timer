@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily OrganicSEOOps customer retention pass
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+RandomizedDelaySec=5m
+Unit=organicseoops-customer-deletion.service
+
+[Install]
+WantedBy=timers.target

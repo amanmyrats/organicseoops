@@ -1,0 +1,7 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Only a previously closed personal account is eligible. Enter the exact account ID and configured reviewed policy reference. This removes account email, authentication and personal diagnostics. Restricted trial fingerprints expire under that policy; user IDs, billing, security and audit lineage, independent organizations' records and existing backups remain separately governed. This is not proof of full legal erasure or backup expiry.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if cleaned %}<p role="status">Closed account identity cleaned. Restricted lineage remains; other organizations' content is unchanged.</p>{% endif %}
+<form method="post">{% csrf_token %}{{ scope_form.as_p }}<button type="submit">Clean closed account identity</button></form>
+{% endblock %}

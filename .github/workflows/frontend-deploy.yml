@@ -1,0 +1,87 @@
+name: Frontend production release
+
+on:
+  push:
+    paths:
+      - frontend/**
+      - deploy/frontend-origin-stack.json
+      - .github/workflows/frontend-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-production-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == format('refs/heads/{0}', vars.PRODUCTION_BRANCH)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      FRONTEND_BUCKET_NAME: ${{ vars.FRONTEND_BUCKET_NAME }}
+      FRONTEND_DISTRIBUTION_ID: ${{ vars.FRONTEND_DISTRIBUTION_ID }}
+      PRODUCTION_BRANCH: ${{ vars.PRODUCTION_BRANCH }}
+      FRONTEND_DEPLOY_ROLE_ARN: ${{ vars.FRONTEND_DEPLOY_ROLE_ARN }}
+      FRONTEND_PUBLIC_ORIGIN: ${{ vars.FRONTEND_PUBLIC_ORIGIN }}
+    steps:
+      - name: Check exact release branch and resources
+        shell: bash
+        run: |
+          test -n "$PRODUCTION_BRANCH" && test "$GITHUB_REF" = "refs/heads/$PRODUCTION_BRANCH"
+          test -n "$AWS_REGION" && test -n "$FRONTEND_BUCKET_NAME" && test -n "$FRONTEND_DISTRIBUTION_ID"
+          test -n "$FRONTEND_DEPLOY_ROLE_ARN"
+          test -n "$FRONTEND_PUBLIC_ORIGIN"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build and check static browser output
+        working-directory: frontend
+        run: |
+          npm ci --foreground-scripts
+          npm run check
+          npm audit --audit-level=high
+          node checks/publication-guard.mjs
+          python3 ../deploy/checks/provider_readiness.py
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.FRONTEND_DEPLOY_ROLE_ARN }}
+          role-session-name: frontend-release
+      - name: Upload hashed assets before HTML
+        shell: bash
+        run: |
+          aws s3 cp frontend/dist/organicseoops/browser/ "s3://$FRONTEND_BUCKET_NAME/" --recursive \
+            --exclude '*' --include '*-*.js' --include '*-*.css' \
+            --cache-control 'public,max-age=31536000,immutable' --only-show-errors
+      - name: Upload other public files with revalidation
+        shell: bash
+        run: |
+          aws s3 sync frontend/dist/organicseoops/browser/ "s3://$FRONTEND_BUCKET_NAME/" \
+            --exclude '*.html' --exclude '*-*.js' --exclude '*-*.css' \
+            --cache-control 'public,max-age=0,must-revalidate' --only-show-errors
+      - name: Publish all HTML including nested prerenders and CSR
+        shell: bash
+        run: |
+          aws s3 sync frontend/dist/organicseoops/browser/ "s3://$FRONTEND_BUCKET_NAME/" \
+            --exclude '*' --include '*.html' --delete \
+            --content-type 'text/html; charset=utf-8' \
+            --cache-control 'public,max-age=0,must-revalidate' --only-show-errors
+      - name: Invalidate and await public HTML refresh
+        shell: bash
+        run: |
+          invalidation_id="$(aws cloudfront create-invalidation --distribution-id "$FRONTEND_DISTRIBUTION_ID" \
+            --paths '/*' --query 'Invalidation.Id' --output text)"
+          test -n "$invalidation_id" && test "$invalidation_id" != None
+          aws cloudfront wait invalidation-completed --distribution-id "$FRONTEND_DISTRIBUTION_ID" --id "$invalidation_id"
